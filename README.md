@@ -1,10 +1,12 @@
 # kolmo
 Libkolmo: configuration management primitives library &amp; support infrastructure
 
+Status: thinking out loud
+
 # Kolmogorov complexity
 The name is a nod to Andrey Nikolaevich Kolmogorov who (together with
 Gregory Chaitin and Ray Solomonoff) first defined Kolmogorov complexity. In
-short and highly informally, this is the amount of data needed to describe
+short and highly informally, this is the amount of data needed to fully describe
 the state of a system compared to a universally known background.
 
 In mathematics, the Komogorov complexity of the first billion digits of Pi
@@ -21,12 +23,12 @@ increases by dozens of bytes to length of the string "Install .. using all
 defaults and change sysctl x y and z".
 
 However, the moment some random packages are installed or sysctl settings
-are changed of the running kernel, all bets are off, and the Kolmogorov
-complexity now runs into the gigabytes: a full serialization of running
-memory and filesystem. That is, unless there is some way to retrieve the
+are changed of the running kernel without keeping track, all bets are off, and
+the Kolmogorov complexity now runs into the gigabytes: a full serialization of 
+running memory and filesystem. That is, unless there is some way to retrieve the
 exact running configuration.
 
-The goal of Libkolmo exactly that: prevent this explosion of complexity
+The goal of Libkolmo is exactly that: prevent this explosion of complexity
 while making software easier to configure & serialize.
 
 ## Examples
