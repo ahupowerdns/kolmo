@@ -5,7 +5,7 @@ Status: thinking out loud
 
 # Kolmogorov complexity
 The name is a nod to Andrey Nikolaevich Kolmogorov who (together with
-Gregory Chaitin and Ray Solomonoff) first defined Kolmogorov complexity. In
+Gregory Chaitin and Ray Solomonoff) first defined [Kolmogorov complexity](https://en.wikipedia.org/wiki/Kolmogorov_complexity). In
 short and highly informally, this is the amount of data needed to fully describe
 the state of a system compared to a universally known background.
 
@@ -131,3 +131,7 @@ With libkolmo enabled programs, the target system can be configured 'in place' u
 serialized with the proper commands. This serialized state is then embedded in the playbook.
 
 As such it becomes trivial to "playbook up a running system".
+
+### Related work
+
+ * [Blueprint](https://github.com/devstructure/blueprint) - Reverse engineer server configuration
