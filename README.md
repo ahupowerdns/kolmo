@@ -119,3 +119,15 @@ state. Such operations are frequently handled via 'search and replace'
 operations, or simply tacking on lines or stanzas to the end of the
 configuration.
 
+## Relation to configuration management, ansible, puppet etc
+One way to limit the Kolmogorov complexity of a system is to only ever change it via a playbook.
+This is, in fact, why we do playbooks: to get a description of a running system that is limited in
+size, and therefore composable.
+
+A problem of creating new playbooks is that it is a slow and laborious process. Changes get made to the playbook,
+the playbook gets played, the resulting server is not quite right, and so the process continues.
+
+With libkolmo enabled programs, the target system can be configured 'in place' until it is right, and then 
+serialized with the proper commands. This serialized state is then embedded in the playbook.
+
+As such it becomes trivial to "playbook up a running system".
