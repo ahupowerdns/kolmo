@@ -1,7 +1,7 @@
 # kolmo
 Libkolmo: configuration management primitives library &amp; support infrastructure
 
-Status: thinking out loud
+Status: **thinking out loud**
 
 # Kolmogorov complexity
 The name is a nod to Andrey Nikolaevich Kolmogorov who (together with
@@ -82,6 +82,29 @@ vhost [::1]:80 {
 ```
 Suddenly the 127.0.0.1 address is part of --dump-config, which it previously
 wasn't.
+
+## Web-based example
+Query the configuration:
+```
+# wctl --web-server 127.0.0.1:8080 --web-user=admin --web-password=Ux5giiSa
+$ curl http://admin:Ux5giiSa@127.0.0.1:8080/vhosts | jq .
+{ "vhosts": [{"address": "127.0.0.1:80", "root": "/var/www/html"},
+             {"address": "[::1]:80", "root": "/var/www/ipv6"}] } 
+```
+Or change it:
+```
+$ curl -X POST http://admin:Ux5giiSa@127.0.0.1:8080/vhosts --data '{"address": "192.168.1.1:80", "root": "/var/www/rfc1918/"}'
+```
+And check how it ended up:
+```
+$ wctl --dump-config
+vhost [::1]:80 {
+	root /var/www/ipv6;
+}
+vhost 192.168.1.1:80 {
+	root /var/www/rfc1918;
+}
+```
 
 ## Larger problem statement
 Programs have large numbers of settings, many of which with defaults. These
