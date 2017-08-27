@@ -32,23 +32,23 @@ The goal of Libkolmo is exactly that: prevent this explosion of complexity
 while making software easier to configure & serialize.
 
 ## Examples
-Assume a simple webserver called `w` with a control command called `wctl`.
-This is based on a `w` and `wctl` linking in 'libkolmo', which provides 
+Assume a simple webserver called `ws` with a control command called `wsctl`.
+This is based on a `ws` and `wsctl` linking in 'libkolmo', which provides 
 these capabilities.
 
 ```
-$ cat w.conf
-$ w
+$ cat ws.conf
+$ ws
 w: Listening on 127.0.0.1:80, serving from /var/www/html
-$ wctl --dump-config
+$ wsctl --dump-config
 $
-$ wctl --add-vhost [::1]:80 /var/www/ipv6/
-$ wctl --dump-config
+$ wsctl --add-vhost [::1]:80 /var/www/ipv6/
+$ wsctl --dump-config
 vhost [::1]:80 {
 	root /var/www/ipv6;
 }
 
-$ wctl --dump-config --full
+$ wsctl --dump-config --full
 vhost 127.0.0.1:80 {
 	root /var/www/html;
 }
@@ -61,18 +61,18 @@ vhost [::1]:80 {
 	root /var/www/ipv6;
 }
 
-# wctl --commit-config
-$ diff $<(wctl --dump-config) w.conf
+# wsctl --commit-config
+$ diff $<(wsctl --dump-config) w.conf
 $
 ```
 
-In addition to this, `wctl` also has a --json flag. All defaults of the `w`
+In addition to this, `wsctl` also has a --json flag. All defaults of the `w`
 server live in the Kolmo descriptors, there is no "127.0.0.1:80" anywhere in
 the source. This means we can even port configuration files to new versions.
 Let's say version 1.1 of wctl no longer listens on 127.0.0.1:80 by default:
 
 ```
-$ wctl --dump-config --from 1.0 --to 1.1
+$ wsctl --dump-config --from 1.0 --to 1.1
 vhost 127.0.0.1:80 {
 	root /var/www/html;
 }
@@ -86,7 +86,7 @@ wasn't.
 ## Web-based example
 Query the configuration:
 ```
-# wctl --web-server 127.0.0.1:8080 --web-user=admin --web-password=Ux5giiSa
+# wsctl --web-server 127.0.0.1:8080 --web-user=admin --web-password=Ux5giiSa
 $ curl http://admin:Ux5giiSa@127.0.0.1:8080/vhosts | jq .
 { "vhosts": [{"address": "127.0.0.1:80", "root": "/var/www/html"},
              {"address": "[::1]:80", "root": "/var/www/ipv6"}] } 
@@ -97,7 +97,7 @@ $ curl -X POST http://admin:Ux5giiSa@127.0.0.1:8080/vhosts --data '{"address": "
 ```
 And check how it ended up:
 ```
-$ wctl --dump-config
+$ wsctl --dump-config
 vhost [::1]:80 {
 	root /var/www/ipv6;
 }
