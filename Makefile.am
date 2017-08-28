@@ -1,4 +1,4 @@
-AM_CPPFLAGS += $(THREADFLAGS) $(BOOST_CPPFLAGS) -Icrow/include
+AM_CPPFLAGS += $(THREADFLAGS) $(BOOST_CPPFLAGS) -Icrow/include -Wstrict-aliasing
 
 AM_LDFLAGS = $(THREADFLAGS)  \
 	$(BOOST_LDFLAGS)

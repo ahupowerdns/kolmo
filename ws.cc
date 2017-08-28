@@ -1,4 +1,6 @@
 #include <crow.h>
+#include "kolmoconf.hh"
+
 
 int main()
 {
