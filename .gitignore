@@ -6,3 +6,5 @@ Makefile.in
 *.d
 config.h
 config.in
+configure
+config.status

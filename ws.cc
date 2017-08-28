@@ -47,10 +47,31 @@
 
  */
 
+using std::cin;
+using std::cout;
+using std::cerr;
+using std::endl;
+
 int main()
 {
+  KolmoConf kc;
+  kc.initSchemaFromFile("ws-schema.lua");
+
+
+  auto verbose=kc.d_main.getBool("verbose");
+  if(verbose) {
+    cerr<<"Must be verbose"<<endl;
+    cerr<<"Server name is "<<kc.d_main.getString("server-name")<<endl;
+  }
+
+  auto site = kc.d_main.getStruct("website"); // XXX SHOULd BE TYPESAFE
+
+  cerr<<"We run a website called "<<site->getString("name")<<endl;
+  cerr<<"The site enable status: "<<site->getBool("enabled")<<endl;
+  cerr<<"We serve from path: "<<site->getString("path")<<endl;
+
+
   crow::SimpleApp app;
-  
   CROW_ROUTE(app, "/")([](){
       return "Hello world";
     });

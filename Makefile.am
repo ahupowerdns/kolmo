@@ -1,4 +1,4 @@
-AM_CPPFLAGS += $(THREADFLAGS) $(BOOST_CPPFLAGS) -Icrow/include -Wstrict-aliasing
+AM_CPPFLAGS += $(THREADFLAGS) $(BOOST_CPPFLAGS) -Icrow/include -Wno-strict-aliasing -Iext/luawrapper/include/ -I/usr/include/lua5.2/
 
 AM_LDFLAGS = $(THREADFLAGS)  \
 	$(BOOST_LDFLAGS)
@@ -10,10 +10,10 @@ bin_PROGRAMS = \
 
 
 ws_SOURCES =  \
-	ws.cc 
+	ws.cc kolmoconf.cc kolmoconf.hh
 
 ws_LDFLAGS = \
-	$(AM_LDFLAGS) $(BOOST_SYSTEM_LIBS) -lpthread
+	$(AM_LDFLAGS) $(BOOST_SYSTEM_LIBS) -lpthread -llua5.2
 
 ws_LDADD = 
 

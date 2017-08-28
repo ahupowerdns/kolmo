@@ -7,8 +7,8 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
 
 AC_CANONICAL_HOST
-: ${CFLAGS="-Wall -g -O2"}
-: ${CXXFLAGS="-Wall -g -O2"}
+: ${CFLAGS="-Wall -g"}
+: ${CXXFLAGS="-Wall -g"}
 
 AC_PROG_CXX
 AS_IF([test "x$CXX" = "xno" || test "x$CXX:x$GXX" = "xg++:x"],
