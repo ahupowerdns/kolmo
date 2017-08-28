@@ -1,0 +1,8 @@
+*~
+*.o
+ws
+Makefile
+Makefile.in
+*.d
+config.h
+config.in
