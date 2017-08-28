@@ -8,3 +8,11 @@ config.h
 config.in
 configure
 config.status
+.deps/
+aclocal.m4
+autom4te.cache/
+build-aux/
+config.h.in
+config.log
+libtool
+stamp-h1
