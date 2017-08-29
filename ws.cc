@@ -52,10 +52,11 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-int main()
+int main(int argc, char** argv)
 {
   KolmoConf kc;
   kc.initSchemaFromFile("ws-schema.lua");
+  kc.initConfigFromFile("ws.conf");
 
 
   auto verbose=kc.d_main.getBool("verbose");
@@ -64,11 +65,16 @@ int main()
     cerr<<"Server name is "<<kc.d_main.getString("server-name")<<endl;
   }
 
-  auto site = kc.d_main.getStruct("website"); // XXX SHOULd BE TYPESAFE
+  auto sites = kc.d_main.getStruct("sites"); // XXX SHOULd BE TYPESAFE
 
-  cerr<<"We run a website called "<<site->getString("name")<<endl;
-  cerr<<"The site enable status: "<<site->getBool("enabled")<<endl;
-  cerr<<"We serve from path: "<<site->getString("path")<<endl;
+  for(const auto& m : sites->getMembers()) {
+    auto site = sites->getStruct(m);
+    cerr<<"["<<m<<"] We run a website called "<<site->getString("name")<<endl;
+    cerr<<"The site enable status: "<<site->getBool("enabled")<<endl;
+    cerr<<"We serve from path: "<<site->getString("path")<<endl;
+    cerr<<"We serve on address: "<<site->getString("listen")<<endl;
+    cerr<<endl;
+  }
 
 
   crow::SimpleApp app;

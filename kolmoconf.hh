@@ -67,6 +67,14 @@ struct KolmoStruct : public KolmoVal, public boost::noncopyable
 
   std::unique_ptr<KolmoVal> clone() const;
   std::map<std::string, std::unique_ptr<KolmoVal>> d_store;
+
+  std::vector<std::string> getMembers() const
+  {
+    std::vector<std::string> ret;
+    for(const auto& m : d_store)
+      ret.push_back(m.first);
+    return ret;
+  }
 };
 
 
@@ -76,10 +84,10 @@ struct KolmoVector : public KolmoVal, public boost::noncopyable
   KolmoVector(const std::string& type) : d_type(type) {}
   
   std::string d_type;
-  std::vector<std::unique_ptr<KolmoVal> > d_contents;
+  std::vector<std::shared_ptr<KolmoVal> > d_contents;
 
-  std::unique_ptr<KolmoVal> create();
-  void append(std::unique_ptr<KolmoVal> ks); 
+  std::shared_ptr<KolmoVal> create();
+  void append(std::shared_ptr<KolmoVal> ks); 
 };
 
 /* idea
@@ -109,6 +117,7 @@ public:
   ~KolmoConf();
   void initSchemaFromString(const std::string& str);
   void initSchemaFromFile(const std::string& str);
+  void initConfigFromFile(const std::string& str);
   
   KolmoStruct d_main;
 

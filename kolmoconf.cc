@@ -46,7 +46,7 @@ std::unique_ptr<KolmoVal> KolmoStruct::clone() const
   return std::unique_ptr<KolmoVal>(ret);
 }
 
-std::unique_ptr<KolmoVal> KolmoVector::create()
+std::shared_ptr<KolmoVal> KolmoVector::create()
 {
   auto f = d_prototypes.find(d_type);
   if(f == d_prototypes.end())
@@ -57,9 +57,9 @@ std::unique_ptr<KolmoVal> KolmoVector::create()
   return s->clone();
 }
 
-void KolmoVector::append(std::unique_ptr<KolmoVal> s)
+void KolmoVector::append(std::shared_ptr<KolmoVal> s)
 {
-  d_contents.push_back(s);
+  d_contents.emplace_back(s);
 }
 
 void KolmoConf::luaInit()
@@ -74,7 +74,8 @@ void KolmoConf::luaInit()
   
   d_lua->registerFunction("registerString", &KolmoStruct::registerString);
   d_lua->registerFunction("registerStruct", &KolmoStruct::registerStruct);
-  d_lua->registerFunction("registerVector", &KolmoStruct::registerVector);
+
+  //  d_lua->registerFunction("registerVector", &KolmoStruct::registerVector);
 
   d_lua->registerFunction("create", &KolmoVector::create);
   d_lua->registerFunction("append", &KolmoVector::append);
@@ -114,6 +115,12 @@ void KolmoConf::initSchemaFromString(const std::string& str)
 }
 
 void KolmoConf::initSchemaFromFile(const std::string& str)
+{
+  std::ifstream ifs{str};
+  d_lua->executeCode(ifs);
+}
+
+void KolmoConf::initConfigFromFile(const std::string& str)
 {
   std::ifstream ifs{str};
   d_lua->executeCode(ifs);
