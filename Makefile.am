@@ -1,4 +1,5 @@
-AM_CPPFLAGS += $(THREADFLAGS) $(BOOST_CPPFLAGS) -Icrow/include -Wno-strict-aliasing -Iext/luawrapper/include/ -I/usr/include/lua5.2/
+AM_CPPFLAGS += $(THREADFLAGS) $(BOOST_CPPFLAGS) -Icrow/include -Wno-strict-aliasing -Iext/luawrapper/include/ \
+	-Iext/simplesocket -I/usr/include/lua5.2/ 
 
 AM_LDFLAGS = $(THREADFLAGS)  \
 	$(BOOST_LDFLAGS)
@@ -10,7 +11,7 @@ bin_PROGRAMS = \
 
 
 ws_SOURCES =  \
-	ws.cc kolmoconf.cc kolmoconf.hh
+	ws.cc kolmoconf.cc kolmoconf.hh ext/simplesocket/comboaddress.cc
 
 ws_LDFLAGS = \
 	$(AM_LDFLAGS) $(BOOST_SYSTEM_LIBS) -lpthread -llua5.2

@@ -4,3 +4,6 @@
 [submodule "ext/luawrapper"]
 	path = ext/luawrapper
 	url = https://github.com/ahupowerdns/luawrapper.git
+[submodule "ext/simplesocket"]
+	path = ext/simplesocket
+	url = https://github.com/ahupowerdns/simplesocket.git
