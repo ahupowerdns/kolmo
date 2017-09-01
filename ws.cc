@@ -84,11 +84,14 @@ try
   crow::SimpleApp app;
   auto func=[kc](const crow::request& req, const std::string& a){
       auto path=getPath(kc, req, a);
-      if(path.empty() || path.find("..") != string::npos)
+      if(path.empty() || path.find("..") != string::npos) {
+        cerr<<"Can't find path for "<<req.url<<endl;
         return string("Can't find it mate");
+      }
 
       FILE* fp=fopen(path.c_str(), "r");
       if(!fp) {
+        cerr<<"Can't find path for "<<req.url<<", "<<path<<endl;
         return string("Can't find it mate 2");
       }
       string ret;
@@ -109,6 +112,31 @@ try
   CROW_ROUTE(app, "/kctl")([]() {
       return "hi";
     });
+
+  auto listeners=kc->d_main.getStruct("listeners");
+  for(const auto& m : listeners->getMembers()) {
+    ComboAddress pot(m);
+    if(pot==ca) {
+      cerr<<"Found a listener that applies!"<<endl;
+      auto listener=listeners->getStruct(m);
+      auto pemfile=listener->getString("pem-file");
+      auto certfile=listener->getString("cert-file");
+      auto keyfile=listener->getString("key-file");
+      if(!pemfile.empty()) {
+        cerr<<"Doing TLS on "<<ca.toStringWithPort()<<", pem-file: "<<pemfile<<endl;
+        app.port(ntohs(ca.sin4.sin_port)).bindaddr(ca.toString()).ssl_file(pemfile).multithreaded().run();
+        cerr<<"Ended?"<<endl;
+        return;
+      }
+      else if(!certfile.empty()) {
+        cerr<<"Doing certfile TLS on "<<ca.toStringWithPort()<<", pem-file: "<<pemfile<<endl;
+        app.port(ntohs(ca.sin4.sin_port)).bindaddr(ca.toString()).ssl_file(certfile,keyfile).multithreaded().run();
+        cerr<<"Ended?"<<endl;
+        return;
+        
+      }
+    }
+  }
   
   app.port(ntohs(ca.sin4.sin_port)).bindaddr(ca.toString()).multithreaded().run();
 }
@@ -119,6 +147,7 @@ catch(std::exception& e)
 
 int main(int argc, char** argv)
 {
+  //  crow::logger::setLogLevel(crow::LogLevel::Debug);
   KolmoConf kc;
   kc.initSchemaFromFile("ws-schema.lua");
   kc.initConfigFromFile("ws.conf");

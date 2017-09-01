@@ -28,5 +28,11 @@ site:registerVariable("listen", "struct", { runtime="false", description="IP end
 
 sites=main:registerStruct("sites", "empty")
 
+listener=createClass("listener", {})
+listener:registerVariable("tls", "bool", { runtime="false", description="If this listener should perform TLS"})
+listener:registerVariable("cert-file", "string", { runtime="false", description="Filename of certificate"})
+listener:registerVariable("key-file", "string", { runtime="false", description="Filename of key"})
+listener:registerVariable("pem-file", "string", { runtime="false", description="PEM file"})
 
+listeners=main:registerStruct("listeners", "empty")
 
