@@ -8,6 +8,11 @@ using namespace std;
 
 KolmoConf::KolmoConf()
 {
+  d_prototypes["bool"]=std::make_unique<KolmoBool>(false);
+  d_prototypes["string"]=std::make_unique<KolmoString>("");
+  d_prototypes["integer"]=std::make_unique<KolmoInteger>(0);
+  d_prototypes["struct"]=std::make_unique<KolmoStruct>();
+  d_prototypes["ipendpoint"]=std::make_unique<KolmoIPEndpoint>();
   luaInit();
 }
 
@@ -19,6 +24,11 @@ void KolmoStruct::registerBool(const std::string& name, bool value)
 void KolmoStruct::registerString(const std::string& name, const std::string& value)
 {
   d_store[name]=KolmoString::make(value);
+}
+
+void KolmoStruct::registerIPEndpoint(const std::string& name, const std::string& value)
+{
+  d_store[name]=KolmoIPEndpoint::make(value);
 }
 
 
@@ -39,7 +49,8 @@ KolmoStruct* KolmoStruct::registerStruct(const std::string& name, const std::str
 
 std::unique_ptr<KolmoVal> KolmoStruct::clone() const
 {
-  KolmoStruct* ret = new KolmoStruct; // XXX 
+  KolmoStruct* ret = new KolmoStruct; // XXX
+  ret->copyInBasics(*this);
   for(const auto& a : d_store) {
     ret->d_store[a.first] = a.second->clone();
   }
@@ -62,6 +73,34 @@ void KolmoVector::append(std::shared_ptr<KolmoVal> s)
   d_contents.emplace_back(s);
 }
 
+void KolmoStruct::registerVariableLua(const std::string& name, const std::string& type, std::unordered_map<string, string> attributes)
+{
+  auto f = d_prototypes.find(type);
+  if(f == d_prototypes.end())
+    throw std::runtime_error("No class named "+type+" found");
+
+  auto thing=f->second->clone();
+  auto iter = attributes.find("default");
+  if(iter != attributes.end()) {
+    thing->setValue(iter->second);
+    thing->defaultValue=iter->second;
+  }
+  iter = attributes.find("runtime");
+  if(iter != attributes.end())
+    thing->runtime=iter->second=="true";
+  iter = attributes.find("description");
+  if(iter != attributes.end())
+    thing->description=iter->second;
+
+  iter = attributes.find("unit");
+  if(iter != attributes.end())
+    thing->unit=iter->second;
+
+  cout<<"Registering variable "<<name<<" of type "<<type<<", description="<<thing->description<<endl;
+  d_store[name]=thing->clone();
+}
+
+
 void KolmoConf::luaInit()
 {
   d_lua=new LuaContext();
@@ -69,7 +108,7 @@ void KolmoConf::luaInit()
 
   d_lua->writeFunction("getMain", [this](){ return &d_main; });
   d_lua->writeVariable("main", &d_main);
-  
+  d_lua->registerFunction("registerVariable", &KolmoStruct::registerVariableLua);
   d_lua->registerFunction("registerBool", &KolmoStruct::registerBool);
   
   d_lua->registerFunction("registerString", &KolmoStruct::registerString);
@@ -82,6 +121,10 @@ void KolmoConf::luaInit()
   
   d_lua->registerFunction("getStruct", &KolmoStruct::getStruct);
   d_lua->registerFunction("setString", &KolmoStruct::setString);
+  d_lua->registerFunction("setIPEndpoint", &KolmoStruct::setIPEndpoint);
+  d_lua->registerFunction("setBool", &KolmoStruct::setBool);
+
+  d_lua->registerFunction("addStringToStruct", &KolmoStruct::addStringToStruct);
 
   
   d_lua->writeFunction("createClass", [this](const std::string& name,
@@ -94,13 +137,20 @@ void KolmoConf::luaInit()
 			     ks.registerBool(e.first, e.second[1].second=="true");
 			   else if(e.second[0].second=="string")
 			     ks.registerString(e.first, e.second[1].second);
+                           else if(e.second[0].second=="struct")
+			     ks.registerStruct(e.first, e.second[1].second);
+                           else if(e.second[0].second=="ipendpoint")
+			     ks.registerIPEndpoint(e.first, e.second[1].second);
 			   else {
 			     throw std::runtime_error("attempting to register unknown type "+e.second[0].second);
 			   }
 
 			 }
 			 d_prototypes[name]=ks.clone();
+                         return (KolmoStruct*)d_prototypes[name].get();
 		       });
+
+
   
 }
 
@@ -115,17 +165,42 @@ void KolmoConf::initSchemaFromString(const std::string& str)
 }
 
 void KolmoConf::initSchemaFromFile(const std::string& str)
+try
 {
   std::ifstream ifs{str};
   d_lua->executeCode(ifs);
+}
+catch(const LuaContext::ExecutionErrorException& e) {
+  std::cerr << e.what(); 
+  try {
+    std::rethrow_if_nested(e);
+    
+    std::cerr << std::endl;
+    abort();
+  } catch(const std::exception& ne) {
+    // ne is the exception that was thrown from inside the lambda
+    std::cerr << ": " << ne.what() << std::endl;
+    abort();
+  }
 }
 
 void KolmoConf::initConfigFromFile(const std::string& str)
+try
 {
   std::ifstream ifs{str};
   d_lua->executeCode(ifs);
 }
-
+catch(const LuaContext::ExecutionErrorException& e) {
+  std::cerr << e.what(); 
+  try {
+    std::rethrow_if_nested(e);
+    
+    std::cerr << std::endl;
+  } catch(const std::exception& ne) {
+    // ne is the exception that was thrown from inside the lambda
+    std::cerr << ": " << ne.what() << std::endl;
+  }
+}
 
 bool KolmoStruct::getBool(const std::string& name)
 {
@@ -160,6 +235,41 @@ void KolmoStruct::setString(const std::string& name, const std::string& val)
     throw std::runtime_error("requested wrong type for configuration item "+name);
   s->d_v = val;
 }
+
+void KolmoStruct::addStringToStruct(const std::string& name, const std::string& val)
+{
+  auto f=d_store.find(name);
+  if(f==d_store.end())
+    throw std::runtime_error("requested non-existent configuration item "+name);
+  auto s=dynamic_cast<KolmoStruct*>(f->second.get());
+  if(!s)
+    throw std::runtime_error("requested wrong type struct for configuration item "+name);
+  cout<<"Adding to struct called "<<name<<", description: '"<<s->description<<"'"<<endl;
+  s->d_store[std::to_string(s->d_store.size())]=std::make_unique<KolmoString>(val);
+}
+
+void KolmoStruct::setBool(const std::string& name, bool val)
+{
+  auto f=d_store.find(name);
+  if(f==d_store.end())
+    throw std::runtime_error("requested non-existent configuration item "+name);
+  auto s=dynamic_cast<KolmoBool*>(f->second.get());
+  if(!s)
+    throw std::runtime_error("requested wrong type for configuration item "+name);
+  s->d_v = val;
+}
+
+void KolmoStruct::setIPEndpoint(const std::string& name, const std::string& in)
+{
+  auto f=d_store.find(name);
+  if(f==d_store.end())
+    throw std::runtime_error("requested non-existent configuration item "+name);
+  auto s=dynamic_cast<KolmoIPEndpoint*>(f->second.get());
+  if(!s)
+    throw std::runtime_error("requested wrong type for configuration item "+name);
+  s->d_v = ComboAddress(in);
+}
+
 
 
 KolmoStruct* KolmoStruct::getStruct(const std::string& name)

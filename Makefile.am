@@ -14,7 +14,7 @@ ws_SOURCES =  \
 	ws.cc kolmoconf.cc kolmoconf.hh ext/simplesocket/comboaddress.cc
 
 ws_LDFLAGS = \
-	$(AM_LDFLAGS) $(BOOST_SYSTEM_LIBS) -lpthread -llua5.2
+	$(AM_LDFLAGS) $(BOOST_SYSTEM_LIBS) -lpthread -llua5.2 -lssl -lcrypto
 
 ws_LDADD = 
 
