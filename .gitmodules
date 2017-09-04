@@ -7,3 +7,9 @@
 [submodule "ext/simplesocket"]
 	path = ext/simplesocket
 	url = https://github.com/ahupowerdns/simplesocket.git
+[submodule "ext/CLI11"]
+	path = ext/CLI11
+	url = https://github.com/CLIUtils/CLI11.git
+[submodule "ext/json"]
+	path = ext/json
+	url = https://github.com/nlohmann/json.git

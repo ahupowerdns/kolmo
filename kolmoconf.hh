@@ -173,7 +173,10 @@ public:
 
   std::string getValue() const
   {
-    return d_v.toStringWithPort();
+    if(d_v.sin4.sin_family)
+      return d_v.toStringWithPort();
+    else
+      return "";
   }
   
   std::string display(int indent=0) const
@@ -273,11 +276,9 @@ public:
     return ret;
   }
 
-  
-  void setValue(const std::string& str) 
-  {
-    abort();
-  }
+
+  void setValue(const std::string& ) { abort(); }
+  void setValueAt(const std::string& str, const std::string& val);
   
   std::string display(int indent=0) const
   {

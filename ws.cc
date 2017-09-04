@@ -4,7 +4,7 @@
 #include "comboaddress.hh"
 #include <set>
 #include <boost/utility/string_ref.hpp>
-
+#include "http.hh"
 
 /* 
    Welcome to the default free zone!
@@ -74,7 +74,7 @@ static int readFile(const boost::string_ref& path, std::string& content)
   return content.size();
 }
 
-string getPath(KolmoConf* kc, const crow::request& req, const std::string& rest)
+string getPath(KolmoConf* kc, const crow::request& req, const std::string& rest, KolmoStruct** siteptr)
 {
   cout<<req.url<<endl;
   auto f=req.headers.find("host");
@@ -89,6 +89,7 @@ string getPath(KolmoConf* kc, const crow::request& req, const std::string& rest)
       auto site = sites->getStruct(m);
       if(site->getString("name")==host && site->getBool("enabled")) {
         cout<<"Got it, should serve up to "<<site->getString("path")+"/"+rest<<endl;
+        *siteptr=site;
         return site->getString("path")+"/"+rest;
       }
     }
@@ -96,57 +97,33 @@ string getPath(KolmoConf* kc, const crow::request& req, const std::string& rest)
   return "";
 }
 
-string pickContentType(const std::string& fname)
-{
-  const string charset = "; charset=utf-8";
-  if(boost::ends_with(fname, ".html"))
-    return "text/html" + charset;
-  else if(boost::ends_with(fname, ".css"))
-    return "text/css" + charset;
-  else if(boost::ends_with(fname,".js"))
-    return "application/javascript" + charset;
-  else if(boost::ends_with(fname, ".png"))
-    return "image/png";
-
-  return "text/html";
-}
-
-void KCToJson(KolmoStruct* ks, crow::json::wvalue& x)
-{
-  for(const auto& m : ks->getAll()) {
-    if(auto ptr=dynamic_cast<KolmoBool*>(m.second)) {
-      x[m.first]=ptr->getBool();
-    }
-    else if(auto ptr=dynamic_cast<KolmoInteger*>(m.second)) {
-      x[m.first]=ptr->getInteger();
-    }
-    else if(auto ptr=dynamic_cast<KolmoIPEndpoint*>(m.second)) {
-      x[m.first]=ptr->getValue();
-    }
-    else if(auto ptr=dynamic_cast<KolmoString*>(m.second)) {
-      x[m.first]=ptr->getValue();
-    }
-    else if(auto ptr=dynamic_cast<KolmoStruct*>(m.second)) {
-      KCToJson(ptr, x[m.first]);
-    }
-  }
-}
 
 void listenThread(KolmoConf* kc, ComboAddress ca)
 try
 {
   crow::SimpleApp app;
-  CROW_ROUTE(app, "/kctl")([kc]() {
-      crow::json::wvalue x;
-      KCToJson(&kc->d_main, x);
-      
-      return x;
-      
-    });
+  bool tls{false};
+  auto func=[ca,kc,&tls](const crow::request& req, crow::response& resp, const std::string& a){
+    cerr<<"Request for "<<req.url<<" came in on "<<ca.toStringWithPort()<<", tls="<<tls<<endl;
+    KolmoStruct *site=0;
+    auto path=getPath(kc, req, a, &site);
 
-  auto func=[ca,kc](const crow::request& req, crow::response& resp, const std::string& a){
-    cerr<<"Request came in on "<<ca.toStringWithPort()<<endl;
-    auto path=getPath(kc, req, a);
+    if(!tls && site && site->getBool("redirect-to-https")) {
+      resp.code=301;
+      resp.set_header("Location", "https://"+site->getString("name")+req.url);
+      resp.body=R"(<html>
+<head><title>301 Moved Permanently</title></head>
+<body bgcolor="white">
+<center><h1>301 Moved Permanently</h1></center>
+<hr><center>ws</center>
+</body>
+</html>)";
+
+      resp.end();
+      return;
+    }
+    
+    
     if(path.empty() || path.find("..") != string::npos) {
       cerr<<"Can't find path for "<<req.url<<endl;
       resp.code=404;
@@ -180,11 +157,13 @@ try
       auto keyfile=listener->getString("key-file");
       if(!pemfile.empty()) {
         cerr<<"Doing TLS on "<<ca.toStringWithPort()<<", pem-file: "<<pemfile<<endl;
+        tls=true;
         app.port(ntohs(ca.sin4.sin_port)).bindaddr(ca.toString()).ssl_file(pemfile).multithreaded().run();
         cerr<<"Ended?"<<endl;
         return;
       }
       else if(!certfile.empty()) {
+        tls=true;
         cerr<<"Doing certfile TLS on "<<ca.toStringWithPort()<<", pem-file: "<<pemfile<<endl;
         crow::ssl_context_t ctx{boost::asio::ssl::context::sslv23};
         ctx.use_certificate_chain_file(certfile);

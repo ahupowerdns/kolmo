@@ -3,7 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include "LuaContext.hpp"
-
+#include <boost/algorithm/string.hpp>
 using namespace std;
 
 KolmoConf::KolmoConf()
@@ -56,24 +56,27 @@ std::unique_ptr<KolmoVal> KolmoStruct::clone() const
   }
   return std::unique_ptr<KolmoVal>(ret);
 }
-/*
-std::shared_ptr<KolmoVal> KolmoVector::create()
+
+
+void KolmoStruct::setValueAt(const std::string& name, const std::string& value)
 {
-  auto f = d_prototypes.find(d_type);
-  if(f == d_prototypes.end())
-    throw std::runtime_error("No class named "+d_type+" found");
-  auto s=dynamic_cast<KolmoStruct*>(f->second.get());
-  if(!s)
-    throw std::runtime_error("requested wrong type for configuration item "+d_type);
-  return s->clone();
+  vector<string> split;
+  boost::split(split,name,boost::is_any_of("/"));
+  auto ptr=this;
+  for(auto iter=split.begin(); iter != split.end(); ++iter) {
+    if(iter + 1 != split.end()) {
+      ptr=dynamic_cast<KolmoStruct*>(ptr->getMember(*iter));
+      if(!ptr) {
+        throw std::runtime_error("Traversing variable path, hit non-struct");
+      }
+    }
+    else {
+      auto rptr=ptr->getMember(*iter);
+      rptr->setValue(value);
+    }
+  }  
 }
 
-void KolmoVector::append(std::shared_ptr<KolmoVal> s)
-{
-  d_contents.emplace_back(s);
-}
-
-*/
 
 void KolmoStruct::registerVariableLua(const std::string& name, const std::string& type, std::unordered_map<string, string> attributes)
 {
@@ -102,7 +105,7 @@ void KolmoStruct::registerVariableLua(const std::string& name, const std::string
   if(iter != attributes.end())
     thing->unit=iter->second;
 
-  cout<<"Registering variable "<<name<<" of type "<<type<<", description="<<thing->description<<endl;
+  //  cout<<"Registering variable "<<name<<" of type "<<type<<", description="<<thing->description<<endl;
   d_store[name]=thing->clone();
 }
 
@@ -135,7 +138,7 @@ void KolmoConf::luaInit()
   
   d_lua->writeFunction("createClass", [this](const std::string& name,
 					     vector<pair<string, vector<pair<int, string> > > > i) {
-			 cout<<"Registering class "<<name<<endl;
+                         //			 cout<<"Registering class "<<name<<endl;
 			 KolmoStruct ks;
 			 for(const auto& e : i) {
 			   cout<<" Attribute '"<<e.first<<"' of type '"<<e.second[0].second<<"' and default value: '"<<e.second[1].second<<"'"<<endl;
