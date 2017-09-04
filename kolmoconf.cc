@@ -56,7 +56,7 @@ std::unique_ptr<KolmoVal> KolmoStruct::clone() const
   }
   return std::unique_ptr<KolmoVal>(ret);
 }
-
+/*
 std::shared_ptr<KolmoVal> KolmoVector::create()
 {
   auto f = d_prototypes.find(d_type);
@@ -72,6 +72,8 @@ void KolmoVector::append(std::shared_ptr<KolmoVal> s)
 {
   d_contents.emplace_back(s);
 }
+
+*/
 
 void KolmoStruct::registerVariableLua(const std::string& name, const std::string& type, std::unordered_map<string, string> attributes)
 {
@@ -92,6 +94,10 @@ void KolmoStruct::registerVariableLua(const std::string& name, const std::string
   if(iter != attributes.end())
     thing->description=iter->second;
 
+  iter = attributes.find("cmdline");
+  if(iter != attributes.end())
+    thing->cmdline=iter->second;
+  
   iter = attributes.find("unit");
   if(iter != attributes.end())
     thing->unit=iter->second;
@@ -116,8 +122,8 @@ void KolmoConf::luaInit()
 
   //  d_lua->registerFunction("registerVector", &KolmoStruct::registerVector);
 
-  d_lua->registerFunction("create", &KolmoVector::create);
-  d_lua->registerFunction("append", &KolmoVector::append);
+  //  d_lua->registerFunction("create", &KolmoVector::create);
+  //  d_lua->registerFunction("append", &KolmoVector::append);
   
   d_lua->registerFunction("getStruct", &KolmoStruct::getStruct);
   d_lua->registerFunction("setString", &KolmoStruct::setString);
@@ -184,6 +190,20 @@ catch(const LuaContext::ExecutionErrorException& e) {
   }
 }
 
+void KolmoConf::initConfigFromCmdline(int argc, char** argv)
+{
+  for(int n=1; n < argc; ++n) {
+    for(const auto m : d_main.getAll()) {
+      if(argv[n]==m.second->cmdline) {
+        cerr<<"Hit!"<<endl;
+        auto ptr = dynamic_cast<KolmoBool*>(m.second);
+        if(ptr)
+          ptr->setBool(true);
+      }
+    }
+  } 
+}
+
 void KolmoConf::initConfigFromFile(const std::string& str)
 try
 {
@@ -200,6 +220,7 @@ catch(const LuaContext::ExecutionErrorException& e) {
     // ne is the exception that was thrown from inside the lambda
     std::cerr << ": " << ne.what() << std::endl;
   }
+  abort();
 }
 
 bool KolmoStruct::getBool(const std::string& name)
@@ -210,7 +231,7 @@ bool KolmoStruct::getBool(const std::string& name)
   auto s=dynamic_cast<KolmoBool*>(f->second.get());
   if(!s)
     throw std::runtime_error("requested wrong type for configuration item "+name);
-  return s->d_v;
+  return s->getBool();
 }
 
 string KolmoStruct::getString(const std::string& name)
@@ -244,7 +265,7 @@ void KolmoStruct::addStringToStruct(const std::string& name, const std::string& 
   auto s=dynamic_cast<KolmoStruct*>(f->second.get());
   if(!s)
     throw std::runtime_error("requested wrong type struct for configuration item "+name);
-  cout<<"Adding to struct called "<<name<<", description: '"<<s->description<<"'"<<endl;
+  //  cout<<"Adding to struct called "<<name<<", description: '"<<s->description<<"'"<<endl;
   s->d_store[std::to_string(s->d_store.size())]=std::make_unique<KolmoString>(val);
 }
 
@@ -256,7 +277,7 @@ void KolmoStruct::setBool(const std::string& name, bool val)
   auto s=dynamic_cast<KolmoBool*>(f->second.get());
   if(!s)
     throw std::runtime_error("requested wrong type for configuration item "+name);
-  s->d_v = val;
+  s->setBool(val);
 }
 
 void KolmoStruct::setIPEndpoint(const std::string& name, const std::string& in)
@@ -267,7 +288,7 @@ void KolmoStruct::setIPEndpoint(const std::string& name, const std::string& in)
   auto s=dynamic_cast<KolmoIPEndpoint*>(f->second.get());
   if(!s)
     throw std::runtime_error("requested wrong type for configuration item "+name);
-  s->d_v = ComboAddress(in);
+  s->setIPEndpoint(ComboAddress(in));
 }
 
 
@@ -281,4 +302,23 @@ KolmoStruct* KolmoStruct::getStruct(const std::string& name)
   if(!s)
     throw std::runtime_error("requested wrong type for configuration item "+name);
   return s;
+}
+
+KolmoVal* KolmoStruct::getMember(const std::string& name) const
+{
+  auto f=d_store.find(name);
+  if(f==d_store.end())
+    throw std::runtime_error("requested non-existent configuration item "+name);
+  return f->second.get();
+}
+
+void KolmoStruct::tieBool(const std::string& name, std::atomic<bool>* target)
+{
+  auto ptr = dynamic_cast<KolmoBool*>(getMember(name));
+  if(!ptr)
+    throw std::runtime_error("Requested bool, but did not get one");
+
+  ptr->tie([target](auto kv) {
+      *target=dynamic_cast<const KolmoBool*>(kv)->getBool();
+    });
 }

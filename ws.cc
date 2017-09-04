@@ -3,6 +3,8 @@
 #include "kolmoconf.hh"
 #include "comboaddress.hh"
 #include <set>
+#include <boost/utility/string_ref.hpp>
+
 
 /* 
    Welcome to the default free zone!
@@ -56,6 +58,22 @@ using std::set;
 using std::vector;
 using std::string;
 
+static int readFile(const boost::string_ref& path, std::string& content)
+{
+  FILE* ffp=fopen(&path[0], "r");
+  if(!ffp) {
+    return -1;
+  }
+  std::shared_ptr<FILE> fp(ffp, fclose);
+  content.clear();
+  char buffer[4096];
+  size_t nbytes;
+  while((nbytes=fread(buffer,1,sizeof(buffer), fp.get()))!=0) {
+    content.append(buffer, nbytes);
+  }
+  return content.size();
+}
+
 string getPath(KolmoConf* kc, const crow::request& req, const std::string& rest)
 {
   cout<<req.url<<endl;
@@ -78,40 +96,78 @@ string getPath(KolmoConf* kc, const crow::request& req, const std::string& rest)
   return "";
 }
 
+string pickContentType(const std::string& fname)
+{
+  const string charset = "; charset=utf-8";
+  if(boost::ends_with(fname, ".html"))
+    return "text/html" + charset;
+  else if(boost::ends_with(fname, ".css"))
+    return "text/css" + charset;
+  else if(boost::ends_with(fname,".js"))
+    return "application/javascript" + charset;
+  else if(boost::ends_with(fname, ".png"))
+    return "image/png";
+
+  return "text/html";
+}
+
+void KCToJson(KolmoStruct* ks, crow::json::wvalue& x)
+{
+  for(const auto& m : ks->getAll()) {
+    if(auto ptr=dynamic_cast<KolmoBool*>(m.second)) {
+      x[m.first]=ptr->getBool();
+    }
+    else if(auto ptr=dynamic_cast<KolmoInteger*>(m.second)) {
+      x[m.first]=ptr->getInteger();
+    }
+    else if(auto ptr=dynamic_cast<KolmoIPEndpoint*>(m.second)) {
+      x[m.first]=ptr->getValue();
+    }
+    else if(auto ptr=dynamic_cast<KolmoString*>(m.second)) {
+      x[m.first]=ptr->getValue();
+    }
+    else if(auto ptr=dynamic_cast<KolmoStruct*>(m.second)) {
+      KCToJson(ptr, x[m.first]);
+    }
+  }
+}
+
 void listenThread(KolmoConf* kc, ComboAddress ca)
 try
 {
   crow::SimpleApp app;
-  auto func=[kc](const crow::request& req, const std::string& a){
-      auto path=getPath(kc, req, a);
-      if(path.empty() || path.find("..") != string::npos) {
-        cerr<<"Can't find path for "<<req.url<<endl;
-        return string("Can't find it mate");
-      }
-
-      FILE* fp=fopen(path.c_str(), "r");
-      if(!fp) {
-        cerr<<"Can't find path for "<<req.url<<", "<<path<<endl;
-        return string("Can't find it mate 2");
-      }
-      string ret;
-      char buffer[4096];
-      size_t nbytes;
-      while((nbytes=fread(buffer,1,sizeof(buffer), fp))!=0) {
-        cout<<nbytes<<endl;
-        ret.append(buffer, nbytes);
-      }
-      fclose(fp);
-      return ret;
+  CROW_ROUTE(app, "/kctl")([kc]() {
+      crow::json::wvalue x;
+      KCToJson(&kc->d_main, x);
       
+      return x;
+      
+    });
+
+  auto func=[ca,kc](const crow::request& req, crow::response& resp, const std::string& a){
+    cerr<<"Request came in on "<<ca.toStringWithPort()<<endl;
+    auto path=getPath(kc, req, a);
+    if(path.empty() || path.find("..") != string::npos) {
+      cerr<<"Can't find path for "<<req.url<<endl;
+      resp.code=404;
+      resp.body="Can't find URL";
+      resp.end();
+      return;
+    }
+
+    string content;
+    if(readFile(path, resp.body) < 0) {
+      resp.code=404;
+      resp.body="Can't find URL";
+      resp.end();
+    }
+    resp.set_header("Content-Type", pickContentType(path));
+    resp.end();
   };
   CROW_ROUTE(app, "/<path>")(func);
 
-  CROW_ROUTE(app, "/")([&func](const crow::request& rec) { return func(rec, "/index.html");});
+  CROW_ROUTE(app, "/")([&func](const crow::request& rec, crow::response& resp) { return func(rec, resp,  "/index.html");});
 
-  CROW_ROUTE(app, "/kctl")([]() {
-      return "hi";
-    });
 
   auto listeners=kc->d_main.getStruct("listeners");
   for(const auto& m : listeners->getMembers()) {
@@ -130,7 +186,17 @@ try
       }
       else if(!certfile.empty()) {
         cerr<<"Doing certfile TLS on "<<ca.toStringWithPort()<<", pem-file: "<<pemfile<<endl;
-        app.port(ntohs(ca.sin4.sin_port)).bindaddr(ca.toString()).ssl_file(certfile,keyfile).multithreaded().run();
+        crow::ssl_context_t ctx{boost::asio::ssl::context::sslv23};
+        ctx.use_certificate_chain_file(certfile);
+
+        ctx.use_private_key_file(keyfile, crow::ssl_context_t::pem);
+        ctx.set_options(
+                                 boost::asio::ssl::context::default_workarounds
+                                 | boost::asio::ssl::context::no_sslv2
+                                 | boost::asio::ssl::context::no_sslv3
+                                 );
+        
+        app.port(ntohs(ca.sin4.sin_port)).bindaddr(ca.toString()).ssl(std::move(ctx)).multithreaded().run();
         cerr<<"Ended?"<<endl;
         return;
         
@@ -145,17 +211,23 @@ catch(std::exception& e)
   cerr<<"Error from webserver for "<<ca.toString()<<": "<<e.what()<<endl;
 }
 
+std::atomic<bool> g_verbose;
+
 int main(int argc, char** argv)
 {
   //  crow::logger::setLogLevel(crow::LogLevel::Debug);
   KolmoConf kc;
   kc.initSchemaFromFile("ws-schema.lua");
   kc.initConfigFromFile("ws.conf");
+  kc.initConfigFromCmdline(argc, argv);
 
-  auto verbose=kc.d_main.getBool("verbose");
-  if(verbose) {
+  kc.d_main.tieBool("verbose", &g_verbose);
+  if(g_verbose) {
     cerr<<"Must be verbose"<<endl;
     cerr<<"Server name is "<<kc.d_main.getString("server-name")<<endl;
+  }
+  else {
+    cerr<<"Verbose is false"<<endl;
   }
 
   set<string> listenAddresses;
@@ -181,9 +253,8 @@ int main(int argc, char** argv)
     cerr<<endl;
   }
 
-
-  cout<<"Full config: "<<endl;
-  cout<<kc.d_main.display();
+  //  cout<<"Full config: "<<endl;
+  //  cout<<kc.d_main.display();
 
   cerr<<"Need to listen on "<<listenAddresses.size()<<" addresses"<<endl;
   

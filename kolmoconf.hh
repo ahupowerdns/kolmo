@@ -8,9 +8,11 @@
 #include <sstream>
 #include <boost/core/noncopyable.hpp>
 #include "comboaddress.hh"
+#include <atomic>
 
-struct KolmoVal
+class KolmoVal
 {
+public:
   virtual std::unique_ptr<KolmoVal> clone() const =0;
   void copyInBasics(const KolmoVal& rhs)
   {
@@ -18,6 +20,7 @@ struct KolmoVal
     runtime = rhs.runtime;
     defaultValue = rhs.defaultValue;
     description = rhs.description;
+    cmdline = rhs.cmdline;
     unit = rhs.unit;
   }
   bool mandatory{false};
@@ -25,12 +28,28 @@ struct KolmoVal
   std::string defaultValue; // I know
   std::string description;
   std::string unit;
+  std::string cmdline;
   virtual void setValue(const std::string&)=0;
   virtual std::string display(int indent=0) const=0;
+  void tie(std::function<void(KolmoVal*)> v)
+  {
+    d_ties.push_back(v);
+    v(this);
+  }
+protected:
+  void runTies()
+  {
+    for(auto& t : d_ties)
+      t(this);
+  }
+
+private:
+  std::vector<std::function<void(KolmoVal*)> > d_ties;
 };
 
-struct KolmoBool : public KolmoVal
+class KolmoBool : public KolmoVal
 {
+public:
   explicit KolmoBool(bool v) : d_v(v)
   {}
 
@@ -45,6 +64,7 @@ struct KolmoBool : public KolmoVal
   void setValue(const std::string& str) 
   {
     d_v = (str=="true");
+    runTies();
   }
   
   static std::unique_ptr<KolmoVal> make(bool v)
@@ -59,12 +79,25 @@ struct KolmoBool : public KolmoVal
     ret<<std::string(indent, ' ')<<(d_v ? "true" : "false")<<" ["<<description<<"], default="<<defaultValue<<std::endl;
     return ret.str();
   }
+
+  bool getBool() const
+  {
+    return d_v;
+  }
+  void setBool(bool v) 
+  {
+    d_v=v;
+    runTies();
+  }
+private:
   bool d_v;
+
 };
 
 
-struct KolmoString : public KolmoVal
+class KolmoString : public KolmoVal
 {
+public:
   explicit KolmoString(const std::string& s) : d_v(s)
   {}
 
@@ -77,6 +110,11 @@ struct KolmoString : public KolmoVal
     d_v = str;
   }
 
+  std::string getValue() const
+  {
+    return d_v;
+  }
+  
   std::unique_ptr<KolmoVal> clone() const
   {
     auto ret=std::make_unique<KolmoString>(d_v);
@@ -93,8 +131,9 @@ struct KolmoString : public KolmoVal
   std::string d_v;  
 };
 
-struct KolmoIPEndpoint : public KolmoVal
+class KolmoIPEndpoint : public KolmoVal
 {
+public:
   explicit KolmoIPEndpoint(const std::string& str) 
   {
     if(str.empty())
@@ -131,18 +170,30 @@ struct KolmoIPEndpoint : public KolmoVal
     else
       d_v=ComboAddress(in);
   }
+
+  std::string getValue() const
+  {
+    return d_v.toStringWithPort();
+  }
+  
   std::string display(int indent=0) const
   {
     std::ostringstream ret;
     ret<<std::string(indent, ' ')<<d_v.toStringWithPort()<<" ["<<description<<"] default="<<defaultValue<<std::endl;
     return ret.str();
   }
-  
+
+  void setIPEndpoint(const ComboAddress& ca)
+  {
+    d_v=ca;
+  }
+private:
   ComboAddress d_v;
 };
 
-struct KolmoInteger : public KolmoVal
+class KolmoInteger : public KolmoVal
 {
+public:
   explicit KolmoInteger(uint64_t v) : d_v(v)
   {}
 
@@ -162,6 +213,11 @@ struct KolmoInteger : public KolmoVal
   {
     d_v=atoi(in.c_str());
   }
+
+  uint64_t getInteger() const
+  {
+    return d_v;
+  }
   std::string display(int indent=0) const
   {
     std::ostringstream ret;
@@ -171,19 +227,23 @@ struct KolmoInteger : public KolmoVal
     ret<<std::endl;
     return ret.str();
   }
+private:
   
   uint64_t d_v;  
 };
 
 
-struct KolmoStruct : public KolmoVal, public boost::noncopyable
+class KolmoStruct : public KolmoVal, public boost::noncopyable
 {
+public:
   KolmoStruct() {}
   bool getBool(const std::string& name);
   std::string getString(const std::string& name);
   void setString(const std::string& name, const std::string& value);
   void setBool(const std::string& name, bool v);
+  void tieBool(const std::string& name, std::atomic<bool>* target);
   void setIPEndpoint(const std::string& name, const std::string& value);
+  KolmoVal* getMember(const std::string& name) const;
   KolmoStruct* getStruct(const std::string& name);
   void registerVariableLua(const std::string& name, const std::string& type, std::unordered_map<std::string, std::string> attributes);
   void registerBool(const std::string& name, bool v);
@@ -195,7 +255,7 @@ struct KolmoStruct : public KolmoVal, public boost::noncopyable
   //  void registerStruct(const std::string& name, const KolmoStruct& );
 
   std::unique_ptr<KolmoVal> clone() const;
-  std::map<std::string, std::unique_ptr<KolmoVal>> d_store;
+
 
   std::vector<std::string> getMembers() const
   {
@@ -205,12 +265,19 @@ struct KolmoStruct : public KolmoVal, public boost::noncopyable
     return ret;
   }
 
+  std::vector<std::pair<std::string, KolmoVal*> > getAll() const
+  {
+    std::vector<std::pair<std::string, KolmoVal*>> ret;
+    for(const auto& m : d_store)
+      ret.push_back({m.first, m.second.get()});
+    return ret;
+  }
+
+  
   void setValue(const std::string& str) 
   {
     abort();
   }
-
-
   
   std::string display(int indent=0) const
   {
@@ -223,22 +290,11 @@ struct KolmoStruct : public KolmoVal, public boost::noncopyable
     
     return ret.str();
   }
-
-  
+private:
+  std::map<std::string, std::unique_ptr<KolmoVal>> d_store;  
 };
 
 
-
-struct KolmoVector : public KolmoVal, public boost::noncopyable
-{
-  KolmoVector(const std::string& type) : d_type(type) {}
-  
-  std::string d_type;
-  std::vector<std::shared_ptr<KolmoVal> > d_contents;
-
-  std::shared_ptr<KolmoVal> create();
-  void append(std::shared_ptr<KolmoVal> ks); 
-};
 
 /* idea
    The schema is a Lua file that creates KolmoClasses
@@ -268,6 +324,7 @@ public:
   void initSchemaFromString(const std::string& str);
   void initSchemaFromFile(const std::string& str);
   void initConfigFromFile(const std::string& str);
+  void initConfigFromCmdline(int argc, char**argv);
   
   KolmoStruct d_main;
 
