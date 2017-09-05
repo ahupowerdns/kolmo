@@ -89,6 +89,16 @@ public:
     d_v=v;
     runTies();
   }
+
+  bool operator==(const KolmoBool& rhs) const
+  {
+    return d_v == rhs.d_v;
+  }
+  bool operator!=(const KolmoBool& rhs) const
+  {
+    return !operator==(rhs);
+  }
+  
 private:
   bool d_v;
 
@@ -127,6 +137,16 @@ public:
     ret<<std::string(indent, ' ')<<d_v<<" ["<<description<<"]"<<std::endl;
     return ret.str();
   }
+
+  bool operator==(const KolmoString& rhs) const
+  {
+    return d_v == rhs.d_v;
+  }
+  bool operator!=(const KolmoString& rhs) const
+  {
+    return d_v != rhs.d_v;
+  }
+
   
   std::string d_v;  
 };
@@ -190,6 +210,26 @@ public:
   {
     d_v=ca;
   }
+
+  ComboAddress getIPEndpoint() const
+  {
+    return d_v;
+  }
+
+  
+  bool operator==(const KolmoIPEndpoint& rhs) const
+  {
+    if(d_v.sin4.sin_family == 0 && rhs.d_v.sin4.sin_family==0)
+      return true;
+
+    return d_v == rhs.d_v;
+  }
+  bool operator!=(const KolmoIPEndpoint& rhs) const
+  {
+    return !operator==(rhs);
+  }
+
+  
 private:
   ComboAddress d_v;
 };
@@ -221,6 +261,12 @@ public:
   {
     return d_v;
   }
+
+  void setInteger(uint64_t v)
+  {
+    d_v=v;
+  }
+
   std::string display(int indent=0) const
   {
     std::ostringstream ret;
@@ -230,6 +276,18 @@ public:
     ret<<std::endl;
     return ret.str();
   }
+
+  bool operator==(const KolmoInteger& rhs) const
+  {
+    return d_v == rhs.d_v;
+  }
+  bool operator!=(const KolmoInteger& rhs) const
+  {
+    return d_v != rhs.d_v;
+  }
+
+
+  
 private:
   
   uint64_t d_v;  
@@ -246,17 +304,28 @@ public:
   void setBool(const std::string& name, bool v);
   void tieBool(const std::string& name, std::atomic<bool>* target);
   void setIPEndpoint(const std::string& name, const std::string& value);
+  void setIPEndpointCA(const std::string& name, const ComboAddress& ca);
+  void setStruct(const std::string& name, std::unique_ptr<KolmoStruct> s);
+  void setInteger(const std::string& name, uint64_t value);
   KolmoVal* getMember(const std::string& name) const;
   KolmoStruct* getStruct(const std::string& name);
   void registerVariableLua(const std::string& name, const std::string& type, std::unordered_map<std::string, std::string> attributes);
   void registerBool(const std::string& name, bool v);
   void registerString(const std::string& name, const std::string& );
   void registerIPEndpoint(const std::string& name, const std::string& );
-  KolmoStruct* registerStruct(const std::string& name, const std::string& );
+  void registerStruct(const std::string& name, const std::string& );
+  void registerStructMember(const std::string& name, KolmoStruct* s);
   void addStringToStruct(const std::string& name, const std::string& val);
-  //  KolmoStruct* registerVector(const std::string& name, const std::string& type);
-  //  void registerStruct(const std::string& name, const KolmoStruct& );
 
+  KolmoStruct* getNewMember();
+  
+  void unregisterVariable(const std::string& name)
+  {
+    d_store.erase(name);
+  }
+  
+  std::unique_ptr<KolmoStruct> diff(const KolmoStruct& temp, const KolmoStruct& rhs, int nest=0) const;
+  
   std::unique_ptr<KolmoVal> clone() const;
 
 
@@ -291,7 +360,21 @@ public:
     
     return ret.str();
   }
+  void setMemberType(const std::string& str)
+  {
+    d_membertype = str;
+  }
+  std::string getMemberType() const
+  {
+    return d_membertype;
+  }
+
+  bool empty() const
+  {
+    return d_store.empty();
+  }
 private:
+  std::string d_membertype, d_mytype;
   std::map<std::string, std::unique_ptr<KolmoVal>> d_store;  
 };
 
@@ -324,13 +407,26 @@ public:
   ~KolmoConf();
   void initSchemaFromString(const std::string& str);
   void initSchemaFromFile(const std::string& str);
-  void initConfigFromFile(const std::string& str);
+  void initConfigFromLua(const std::string& str);
+  void initConfigFromJSON(const std::string& str);
   void initConfigFromCmdline(int argc, char**argv);
-  
+
   KolmoStruct d_main;
 
+  void declareRuntime()
+  {
+    d_startup = std::move(d_main.clone());
+  }
+
+  std::unique_ptr<KolmoStruct> getRuntimeDiff() 
+  {
+    return dynamic_cast<const KolmoStruct*>(d_startup.get())->diff(
+								   *dynamic_cast<const KolmoStruct*>(d_default.get()),
+								   d_main);
+  }
 private:
   void luaInit();
+  std::unique_ptr<KolmoVal> d_default, d_startup;
 
   LuaContext* d_lua{0};
 };

@@ -197,10 +197,13 @@ int main(int argc, char** argv)
   //  crow::logger::setLogLevel(crow::LogLevel::Debug);
   KolmoConf kc;
   kc.initSchemaFromFile("ws-schema.lua");
-  kc.initConfigFromFile("ws.conf");
+  kc.initConfigFromLua("ws.conf");
+
+  kc.declareRuntime();
   kc.initConfigFromCmdline(argc, argv);
 
   kc.d_main.tieBool("verbose", &g_verbose);
+  
   if(g_verbose) {
     cerr<<"Must be verbose"<<endl;
     cerr<<"Server name is "<<kc.d_main.getString("server-name")<<endl;

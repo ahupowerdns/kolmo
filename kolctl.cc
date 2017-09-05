@@ -91,9 +91,11 @@ int main(int argc, char** argv)
     return 0;
   }
   else {
-    kc.initConfigFromFile(files[1]);
+    kc.initConfigFromLua(files[1]);
   }
 
+  kc.declareRuntime();
+  
   json wv;
 
   KSToJson2(&kc.d_main, wv);
@@ -119,9 +121,16 @@ int main(int argc, char** argv)
     kc.d_main.setValueAt(var, val);
   }
 
+
+  cerr<<"hier"<<endl;
   KSToJson2(&kc.d_main, wv);
   {
     std::ofstream of("config-new.json");
     of << std::setw(4) << wv;
   }
+
+  auto diff = kc.getRuntimeDiff();
+  wv={};
+  KSToJson2(diff.get(), wv);
+  cout << std::setw(4) << wv;
 }
