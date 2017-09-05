@@ -74,30 +74,54 @@ int main(int argc, char** argv)
   } catch(const CLI::Error &e) {
     return app.exit(e);
   }
-
-  cerr<<"Setstring: "<<setstring<<endl;
-  string var, val;
-
-  auto pos=setstring.find('=');
-  if(pos==string::npos) {
-    var=setstring;
-    val="true";
-  }
-  else {
-    var=setstring.substr(0, pos);
-    val=setstring.substr(pos+1);
-  }
-  
   KolmoConf kc;
   kc.initSchemaFromFile(files[0]);
-  kc.initConfigFromFile(files[1]);
+
+  if(boost::ends_with(files[1], ".json")) {
+    ifstream ifs(files[1]);
+    json wv;
+    ifs >> wv;
+    for(auto iter=wv.begin() ; iter != wv.end(); ++iter) {
+      cout<<iter.key()<<endl;
+      if(auto ptr=dynamic_cast<KolmoBool*>(kc.d_main.getMember(iter.key()))) {
+        ptr->setBool(iter.value().get<bool>());
+        cerr<<"SETTING!!"<<endl;
+      }
+    }
+    return 0;
+  }
+  else {
+    kc.initConfigFromFile(files[1]);
+  }
 
   json wv;
-  KSToJson2(&kc.d_main, wv);
 
-  std::cout << std::setw(4)<< wv << endl;
-  kc.d_main.setValueAt(var, val);
   KSToJson2(&kc.d_main, wv);
-  std::cout << std::setw(4)<< wv << endl;
+  {
+    std::ofstream of("config.json");
+    of << std::setw(4) << wv;
+  }
+  
 
+  if(!setstring.empty()) {
+    cerr<<"Setstring: "<<setstring<<endl;
+    string var, val;
+    
+    auto pos=setstring.find('=');
+    if(pos==string::npos) {
+      var=setstring;
+      val="true";
+    }
+    else {
+      var=setstring.substr(0, pos);
+      val=setstring.substr(pos+1);
+    }
+    kc.d_main.setValueAt(var, val);
+  }
+
+  KSToJson2(&kc.d_main, wv);
+  {
+    std::ofstream of("config-new.json");
+    of << std::setw(4) << wv;
+  }
 }
