@@ -19,10 +19,11 @@ ws_LDFLAGS = \
 ws_LDADD = 
 
 kolctl_SOURCES =  \
-	kolctl.cc http.cc kolmoconf.cc kolmoconf.hh ext/simplesocket/comboaddress.cc
+	kolctl.cc http.cc kolmoconf.cc kolmoconf.hh ext/simplesocket/comboaddress.cc \
+	minicurl.cc minicurl.hh
 
 kolctl_LDFLAGS = \
-	$(AM_LDFLAGS) $(BOOST_SYSTEM_LIBS) -lpthread -llua5.2 -lssl -lcrypto
+	$(AM_LDFLAGS) $(BOOST_SYSTEM_LIBS) -lpthread -llua5.2 -lssl -lcrypto -lcurl
 
 kolctl_LDADD = 
 

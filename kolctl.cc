@@ -1,12 +1,14 @@
 #include "kolmoconf.hh"
 #include "http.hh"
 #include <crow/json.h>
+#include "minicurl.hh"
 #include "CLI/CLI.hpp"
 using namespace std;
 
 
 
 int main(int argc, char** argv)
+try
 {
   CLI::App app("kolctl");
 
@@ -21,6 +23,14 @@ int main(int argc, char** argv)
     return app.exit(e);
   }
   KolmoConf kc;
+
+  if(boost::starts_with(files[0], "http://") ||boost::starts_with(files[0], "https://")) {
+    MiniCurl mc;
+    cout<<mc.getURL(files[0]+"/"+files[1])<<endl;
+    return 0;
+    
+  }
+  
   kc.initSchemaFromFile(files[0]);
 
   if(boost::ends_with(files[1], ".json")) {
@@ -78,4 +88,9 @@ int main(int argc, char** argv)
   wv={};
   KSToJson(diff.get(), wv);
   cout << std::setw(4) << wv;
+}
+catch(std::exception& e)
+{
+  cerr<<"Fatal error: "<<e.what()<<endl;
+  return EXIT_FAILURE;
 }

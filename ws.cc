@@ -197,7 +197,7 @@ std::atomic<bool> g_verbose;
 void emitJSON(crow::response& resp, nlohmann::json& wv)
 {
   std::ostringstream str;
-  str << std::setw(4) << wv;
+  str << std::setw(4) << wv << endl;
   resp.write(str.str());
   resp.set_header("Content-Type","application/json");
   resp.end();
@@ -221,7 +221,7 @@ void KolmoThread(KolmoConf* kc)
   
   CROW_ROUTE(app, "/delta-config")([kc](const crow::request& rec, crow::response& resp) {
       auto minimal=kc->getRuntimeDiff();
-      nlohmann::json wv;
+      nlohmann::json wv={};
       KSToJson(minimal.get(), wv);
       emitJSON(resp, wv);
     });
@@ -229,15 +229,28 @@ void KolmoThread(KolmoConf* kc)
   CROW_ROUTE(app, "/runtime/set-value")([kc](const crow::request& rec, crow::response& resp) {
       cerr<<rec.url_params.get("variable")<<endl;
       auto variable=rec.url_params.get("variable"), value=rec.url_params.get("value");
-      kc->d_main.setValueAt(variable, value);
-
-      cerr<<"Setting '"<<variable<<"' to '"<<value<<"'"<<endl;
-      
       nlohmann::json wv;
-      wv["result"]="ok";
+      try {
+        cerr<<"Setting '"<<variable<<"' to '"<<value<<"'"<<endl;
+        kc->d_main.setValueAt(variable, value);
+        wv["result"]="ok";
+      }catch(std::exception& e) {
+        wv["result"]="failure";
+        wv["reason"]=e.what();
+      }
       emitJSON(resp, wv);
     });
 
+  CROW_ROUTE(app, "/ls<path>")([kc](const crow::request& rec, crow::response& resp, const std::string& path=std::string()) {
+      cerr<<path<<endl;
+      nlohmann::json wv=nlohmann::json::object();
+      for(const auto& a : kc->d_main.getAll()) {
+        nlohmann::json item;
+        item["description"] = a.second->description;
+        wv[a.first]=item;
+      }
+      emitJSON(resp, wv);
+    });
   
   
   app.port(1234).bindaddr("127.0.0.1").multithreaded().run();

@@ -6,6 +6,8 @@
 #include <boost/algorithm/string.hpp>
 using namespace std;
 
+bool g_kolmoRuntimeDeclared;
+
 KolmoConf::KolmoConf()
 {
   d_prototypes["bool"]=std::make_unique<KolmoBool>(false);
@@ -68,6 +70,12 @@ std::unique_ptr<KolmoVal> KolmoStruct::clone() const
 }
 
 
+void KolmoVal::checkRuntime()
+{
+  if(g_kolmoRuntimeDeclared && !runtime)
+    throw std::runtime_error("Attempting to change a variable at runtime that does not support runtime changes");
+}
+
 void KolmoStruct::setValueAt(const std::string& name, const std::string& value)
 {
   vector<string> split;
@@ -125,6 +133,18 @@ void KolmoStruct::registerVariableLua(const std::string& name, const std::string
   if(iter != attributes.end())
     thing->unit=iter->second;
 
+  iter = attributes.find("member_type");
+  if(iter != attributes.end()) {
+    auto f = d_prototypes.find(iter->second);
+    if(f == d_prototypes.end())
+      throw std::runtime_error("No class named "+name+" found for member-type lookup");
+    auto s=dynamic_cast<KolmoStruct*>(thing.get());
+    if(!s)
+      throw std::runtime_error("requested wrong type for configuration item "+name);
+    s->setMemberType(iter->second);
+  }
+
+  
   //  cout<<"Registering variable "<<name<<" of type "<<type<<", description="<<thing->description<<endl;
   d_store[name]=thing->clone();
 }
@@ -141,7 +161,6 @@ void KolmoConf::luaInit()
   d_lua->registerFunction("registerBool", &KolmoStruct::registerBool);
   
   d_lua->registerFunction("registerString", &KolmoStruct::registerString);
-  d_lua->registerFunction("registerStruct", &KolmoStruct::registerStruct);
   d_lua->registerFunction("registerStructMember", &KolmoStruct::registerStructMember);
   d_lua->registerFunction("getNewMember", &KolmoStruct::getNewMember);
 
@@ -486,8 +505,23 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
       cerr<<prefix<<"Skipping other field: "<<rhs.first<<endl;
       continue;
     }
-    cerr<<prefix<<"Adding other field "<<rhs.first<<endl;
-    ret->setStruct(rhs.first, std::unique_ptr<KolmoStruct>(dynamic_cast<KolmoStruct*>(rhs.second->clone().release())));
+
+    auto newstruct=std::unique_ptr<KolmoStruct>(dynamic_cast<KolmoStruct*>(rhs.second->clone().release()));
+    cerr<<prefix<<"Adding other field "<<rhs.first<<", type="<<newstruct->d_mytype<<endl;
+
+    auto f = d_prototypes.find(newstruct->d_mytype);
+    // XXX check here
+    for(auto& m : newstruct->getAll()) {
+      if(auto ptr = dynamic_cast<const KolmoBool*>(m.second)) {
+        auto rhs=dynamic_cast<const KolmoBool*>(dynamic_cast<const KolmoStruct*>(f->second.get())->getMember(m.first));
+        if(*ptr == *rhs)
+          newstruct->unregisterVariable(m.first);
+      }
+      // XXX check other defaults too
+    }
+
+    
+    ret->setStruct(rhs.first, std::move(newstruct));
   }
   
   return ret;
@@ -495,6 +529,7 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
 
 void KSToJson(KolmoStruct* ks, nlohmann::json& x)
 {
+  x=nlohmann::json::object();
   for(const auto& m : ks->getAll()) {
     if(auto ptr=dynamic_cast<KolmoBool*>(m.second)) {
       x[m.first]=ptr->getBool();

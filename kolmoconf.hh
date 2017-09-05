@@ -11,6 +11,9 @@
 #include <atomic>
 #include <json.hpp>
 
+
+extern bool g_kolmoRuntimeDeclared;
+
 class KolmoVal
 {
 public:
@@ -44,6 +47,8 @@ protected:
       t(this);
   }
 
+  void checkRuntime();
+  
 private:
   std::vector<std::function<void(KolmoVal*)> > d_ties;
 };
@@ -64,7 +69,15 @@ public:
 
   void setValue(const std::string& str) 
   {
-    d_v = (str=="true");
+    if(str=="true")
+      d_v = true;
+    else if(str=="false")
+      d_v = false;
+    else
+      throw std::runtime_error("Attempt to set bool to something not true or false");
+
+    checkRuntime();
+     
     runTies();
   }
   
@@ -118,6 +131,7 @@ public:
   }
   void setValue(const std::string& str) 
   {
+    checkRuntime();
     d_v = str;
   }
 
@@ -186,6 +200,7 @@ public:
 
   void setValue(const std::string& in)
   {
+    checkRuntime();
     if(in.empty())
       d_v.sin4.sin_family=0;
     else
@@ -255,7 +270,8 @@ public:
 
   void setValue(const std::string& in)
   {
-    d_v=atoi(in.c_str());
+    checkRuntime();
+    d_v=atoi(in.c_str()); // XXX 64 bit
   }
 
   uint64_t getInteger() const
@@ -347,7 +363,12 @@ public:
   }
 
 
-  void setValue(const std::string& ) { abort(); }
+  void setValue(const std::string& )
+  {
+    checkRuntime();
+    // should maybe do JSON
+    abort();
+  } 
   void setValueAt(const std::string& str, const std::string& val);
   
   std::string display(int indent=0) const
@@ -417,6 +438,7 @@ public:
   void declareRuntime()
   {
     d_startup = std::move(d_main.clone());
+    g_kolmoRuntimeDeclared=true;
   }
 
   std::unique_ptr<KolmoStruct> getRuntimeDiff() 

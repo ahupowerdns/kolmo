@@ -18,7 +18,7 @@ site:registerVariable("path", "string", { runtime="true", description="Path on f
 site:registerVariable("listen", "struct", { runtime="false", description="IP endpoints we listen on"})
 site:registerVariable("redirect-to-https", "bool", { default="false", runtime="true", description="If all http requests should be redirected to https"})
 
-sites=main:registerStruct("sites", "site")
+sites=main:registerVariable("sites", "struct", {member_type="site", runtime="false", description="Sites we serve"})
 
 listener=createClass("listener", {})
 listener:registerVariable("tls", "bool", { runtime="false", description="If this listener should perform TLS"})
@@ -28,4 +28,4 @@ listener:registerVariable("cert-file", "string", { runtime="false", description=
 listener:registerVariable("key-file", "string", { runtime="false", description="Filename of key"})
 listener:registerVariable("pem-file", "string", { runtime="false", description="PEM file"})
 
-listeners=main:registerStruct("listeners", "listener")
+listeners=main:registerVariable("listeners", "struct", { runtime="false", member_type="listener", description="Optional configurations per IP address listener"})
