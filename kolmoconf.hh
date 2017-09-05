@@ -9,6 +9,7 @@
 #include <boost/core/noncopyable.hpp>
 #include "comboaddress.hh"
 #include <atomic>
+#include <json.hpp>
 
 class KolmoVal
 {
@@ -424,9 +425,20 @@ public:
 								   *dynamic_cast<const KolmoStruct*>(d_default.get()),
 								   d_main);
   }
+
+  std::unique_ptr<KolmoStruct> getMinimalConfig() 
+  {
+    //    return d_main.diff(*dynamic_cast<const KolmoStruct*>(d_default.get()), *dynamic_cast<const KolmoStruct*>(d_default.get()));
+    return dynamic_cast<const KolmoStruct*>(d_default.get())->diff(
+    								   *dynamic_cast<const KolmoStruct*>(d_default.get()),
+    								   d_main);
+  }
+
 private:
   void luaInit();
   std::unique_ptr<KolmoVal> d_default, d_startup;
 
   LuaContext* d_lua{0};
 };
+
+void KSToJson(KolmoStruct* ks, nlohmann::json& x);

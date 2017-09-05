@@ -3,62 +3,8 @@
 #include <crow/json.h>
 #include "CLI/CLI.hpp"
 using namespace std;
-#include <json.hpp>
-
-void KSToJson(KolmoStruct* ks, crow::json::wvalue& x)
-{
-  for(const auto& m : ks->getAll()) {
-    if(auto ptr=dynamic_cast<KolmoBool*>(m.second)) {
-      x[m.first]=ptr->getBool();
-    }
-    else if(auto ptr=dynamic_cast<KolmoInteger*>(m.second)) {
-      x[m.first]=ptr->getInteger();
-    }
-    else if(auto ptr=dynamic_cast<KolmoIPEndpoint*>(m.second)) {
-      x[m.first]=ptr->getValue();
-    }
-    else if(auto ptr=dynamic_cast<KolmoString*>(m.second)) {
-      x[m.first]=ptr->getValue();
-    }
-    else if(auto ptr=dynamic_cast<KolmoStruct*>(m.second)) {
-      KSToJson(ptr, x[m.first]);
-    }
-  }
-}
-
-using json = nlohmann::json;
-
-void KSToJson2(KolmoStruct* ks, json& x)
-{
-  for(const auto& m : ks->getAll()) {
-    if(auto ptr=dynamic_cast<KolmoBool*>(m.second)) {
-      x[m.first]=ptr->getBool();
-    }
-    else if(auto ptr=dynamic_cast<KolmoInteger*>(m.second)) {
-      x[m.first]=ptr->getInteger();
-    }
-    else if(auto ptr=dynamic_cast<KolmoIPEndpoint*>(m.second)) {
-      x[m.first]=ptr->getValue();
-    }
-    else if(auto ptr=dynamic_cast<KolmoString*>(m.second)) {
-      x[m.first]=ptr->getValue();
-    }
-    else if(auto ptr=dynamic_cast<KolmoStruct*>(m.second)) {
-      KSToJson2(ptr, x[m.first]);
-    }
-  }
-}
 
 
-/*
-  CROW_ROUTE(app, "/kctl")([kc]() {
-      crow::json::wvalue x;
-      KSToJson(&kc->d_main, x);
-      
-      return x;
-      
-    });
-*/
 
 int main(int argc, char** argv)
 {
@@ -79,7 +25,7 @@ int main(int argc, char** argv)
 
   if(boost::ends_with(files[1], ".json")) {
     ifstream ifs(files[1]);
-    json wv;
+    nlohmann::json wv;
     ifs >> wv;
     for(auto iter=wv.begin() ; iter != wv.end(); ++iter) {
       cout<<iter.key()<<endl;
@@ -96,9 +42,9 @@ int main(int argc, char** argv)
 
   kc.declareRuntime();
   
-  json wv;
+  nlohmann::json wv;
 
-  KSToJson2(&kc.d_main, wv);
+  KSToJson(&kc.d_main, wv);
   {
     std::ofstream of("config.json");
     of << std::setw(4) << wv;
@@ -122,8 +68,7 @@ int main(int argc, char** argv)
   }
 
 
-  cerr<<"hier"<<endl;
-  KSToJson2(&kc.d_main, wv);
+  KSToJson(&kc.d_main, wv);
   {
     std::ofstream of("config-new.json");
     of << std::setw(4) << wv;
@@ -131,6 +76,6 @@ int main(int argc, char** argv)
 
   auto diff = kc.getRuntimeDiff();
   wv={};
-  KSToJson2(diff.get(), wv);
+  KSToJson(diff.get(), wv);
   cout << std::setw(4) << wv;
 }

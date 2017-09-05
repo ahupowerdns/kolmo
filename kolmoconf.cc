@@ -408,8 +408,11 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
   string prefix(nest, '\t');
   std::unique_ptr<KolmoStruct> ret=std::unique_ptr<KolmoStruct>(dynamic_cast<KolmoStruct*>(templ.clone().release()));
   cerr<<prefix<<"In diff"<<endl;
+
+  set<std::string> visited;
   for(const auto& m : d_store) {
     cerr<<prefix<<"Looking at "<<m.first<<endl;
+    visited.insert(m.first);
     if(auto ptr = dynamic_cast<const KolmoStruct*>(m.second.get())) {
       
       cerr<<prefix<<"Is a struct, membertype: "<<ptr->d_mytype<<endl;
@@ -475,8 +478,39 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
       else
 	ret->unregisterVariable(m.first);
     }
-
+  }
+  cerr<<prefix<<"Done with ourselves, had "<<visited.size()<<" members, checking what er missed on other side"<<endl;
+  for(const auto& rhs : other.getAll()) {
+    cerr<<prefix<<"Other field: "<<rhs.first<<endl;
+    if(visited.count(rhs.first)) {
+      cerr<<prefix<<"Skipping other field: "<<rhs.first<<endl;
+      continue;
+    }
+    cerr<<prefix<<"Adding other field "<<rhs.first<<endl;
+    ret->setStruct(rhs.first, std::unique_ptr<KolmoStruct>(dynamic_cast<KolmoStruct*>(rhs.second->clone().release())));
   }
   
   return ret;
 }
+
+void KSToJson(KolmoStruct* ks, nlohmann::json& x)
+{
+  for(const auto& m : ks->getAll()) {
+    if(auto ptr=dynamic_cast<KolmoBool*>(m.second)) {
+      x[m.first]=ptr->getBool();
+    }
+    else if(auto ptr=dynamic_cast<KolmoInteger*>(m.second)) {
+      x[m.first]=ptr->getInteger();
+    }
+    else if(auto ptr=dynamic_cast<KolmoIPEndpoint*>(m.second)) {
+      x[m.first]=ptr->getValue();
+    }
+    else if(auto ptr=dynamic_cast<KolmoString*>(m.second)) {
+      x[m.first]=ptr->getValue();
+    }
+    else if(auto ptr=dynamic_cast<KolmoStruct*>(m.second)) {
+      KSToJson(ptr, x[m.first]);
+    }
+  }
+}
+

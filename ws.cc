@@ -4,6 +4,7 @@
 #include "comboaddress.hh"
 #include <set>
 #include <boost/utility/string_ref.hpp>
+#include <sstream>
 #include "http.hh"
 
 /* 
@@ -192,6 +193,56 @@ catch(std::exception& e)
 
 std::atomic<bool> g_verbose;
 
+
+void emitJSON(crow::response& resp, nlohmann::json& wv)
+{
+  std::ostringstream str;
+  str << std::setw(4) << wv;
+  resp.write(str.str());
+  resp.set_header("Content-Type","application/json");
+  resp.end();
+}
+
+void KolmoThread(KolmoConf* kc)
+{
+  crow::SimpleApp app;
+  CROW_ROUTE(app, "/full-config")([kc](const crow::request& rec, crow::response& resp) {
+      nlohmann::json wv;
+      KSToJson(&kc->d_main, wv);
+      emitJSON(resp, wv);
+    });
+
+  CROW_ROUTE(app, "/minimal-config")([kc](const crow::request& rec, crow::response& resp) {
+      auto minimal=kc->getMinimalConfig();
+      nlohmann::json wv;
+      KSToJson(minimal.get(), wv);
+      emitJSON(resp, wv);
+    });
+  
+  CROW_ROUTE(app, "/delta-config")([kc](const crow::request& rec, crow::response& resp) {
+      auto minimal=kc->getRuntimeDiff();
+      nlohmann::json wv;
+      KSToJson(minimal.get(), wv);
+      emitJSON(resp, wv);
+    });
+
+  CROW_ROUTE(app, "/runtime/set-value")([kc](const crow::request& rec, crow::response& resp) {
+      cerr<<rec.url_params.get("variable")<<endl;
+      auto variable=rec.url_params.get("variable"), value=rec.url_params.get("value");
+      kc->d_main.setValueAt(variable, value);
+
+      cerr<<"Setting '"<<variable<<"' to '"<<value<<"'"<<endl;
+      
+      nlohmann::json wv;
+      wv["result"]="ok";
+      emitJSON(resp, wv);
+    });
+
+  
+  
+  app.port(1234).bindaddr("127.0.0.1").multithreaded().run();
+}
+
 int main(int argc, char** argv)
 {
   //  crow::logger::setLogLevel(crow::LogLevel::Debug);
@@ -241,6 +292,9 @@ int main(int argc, char** argv)
   cerr<<"Need to listen on "<<listenAddresses.size()<<" addresses"<<endl;
   
   vector<std::thread> listeners;
+
+  listeners.emplace_back(KolmoThread, &kc);
+  
   for(const auto& a : listenAddresses) {
     ComboAddress addr(a);
     listeners.emplace_back(listenThread, &kc, addr);
