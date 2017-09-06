@@ -34,6 +34,7 @@ public:
   std::string unit;
   std::string cmdline;
   virtual void setValue(const std::string&)=0;
+  virtual std::string getValue() const=0;
   virtual std::string display(int indent=0) const=0;
   void tie(std::function<void(KolmoVal*)> v)
   {
@@ -85,6 +86,11 @@ public:
     return ret;
   }
 
+  std::string getValue() const override
+  {
+    return d_v ? "true" : "false";
+  }
+  
   void setValue(const std::string& str) 
   {
     if(str=="true")
@@ -149,7 +155,7 @@ public:
     d_v = str;
   }
 
-  std::string getValue() const
+  std::string getValue() const override
   {
     return d_v;
   }
@@ -216,7 +222,7 @@ public:
       d_v=ComboAddress(in);
   }
 
-  std::string getValue() const
+  std::string getValue() const override
   {
     if(d_v.sin4.sin_family)
       return d_v.toStringWithPort();
@@ -278,6 +284,11 @@ public:
     d_v=atoi(in.c_str()); // XXX 64 bit
   }
 
+  std::string getValue() const override
+  {
+    return std::to_string(d_v);
+  }
+  
   uint64_t getInteger() const
   {
     return d_v;
@@ -314,6 +325,7 @@ class KolmoStruct : public KolmoVal, public boost::noncopyable
 public:
   KolmoStruct() {}
   bool getBool(const std::string& name);
+  ComboAddress getIPEndpoint(const std::string& name) const;
   std::string getString(const std::string& name);
   void setString(const std::string& name, const std::string& value);
   void setBool(const std::string& name, bool v);
@@ -337,7 +349,10 @@ public:
   void addStringToStruct(const std::string& name, const std::string& val);
 
   KolmoStruct* getNewMember();
-  
+  std::string getValue() const override
+  {
+    return "{struct}";
+  }
   void unregisterVariable(const std::string& name)
   {
     d_store.erase(name);
@@ -372,7 +387,7 @@ public:
     abort();
   } 
   void setValueAt(const std::string& str, const std::string& val);
-  
+  KolmoVal* getValueAt(const std::string& name) const;
   std::string display(int indent=0) const
   {
     std::ostringstream ret;

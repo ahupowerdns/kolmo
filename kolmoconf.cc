@@ -95,6 +95,26 @@ void KolmoStruct::setValueAt(const std::string& name, const std::string& value)
   }  
 }
 
+KolmoVal* KolmoStruct::getValueAt(const std::string& name) const
+{
+  vector<string> split;
+  boost::split(split,name,boost::is_any_of("/"));
+  auto ptr=this;
+  for(auto iter=split.begin(); iter != split.end(); ++iter) {
+    if(iter + 1 != split.end()) {
+      ptr=dynamic_cast<KolmoStruct*>(ptr->getMember(*iter));
+      if(!ptr) {
+        throw std::runtime_error("Traversing variable path, hit non-struct");
+      }
+    }
+    else {
+      return (KolmoVal*)ptr->getMember(*iter);
+    }
+  }
+  return 0; // XXX CRASH
+}
+
+
 KolmoStruct* KolmoStruct::getNewMember()
 {
   auto f = d_prototypes.find(d_membertype);
@@ -245,6 +265,16 @@ void KolmoConf::initConfigFromCmdline(int argc, char** argv)
   } 
 }
 
+void KolmoConf::initConfigFromJSON(const std::string& str)
+{
+  std::ifstream ifs{str};
+  if(!ifs)
+    throw std::runtime_error("Could not open "+str+" for configuration file reading");
+  nlohmann::json wv;
+  ifs >> wv;
+  JsonToKS(wv, &d_main);
+}
+
 void KolmoConf::initConfigFromLua(const std::string& str)
 try
 {
@@ -274,6 +304,18 @@ bool KolmoStruct::getBool(const std::string& name)
     throw std::runtime_error("requested wrong type for configuration item "+name);
   return s->getBool();
 }
+
+ComboAddress KolmoStruct::getIPEndpoint(const std::string& name) const
+{
+  auto f=d_store.find(name);
+  if(f==d_store.end())
+    throw std::runtime_error("requested non-existent configuration item "+name);
+  auto s=dynamic_cast<KolmoIPEndpoint*>(f->second.get());
+  if(!s)
+    throw std::runtime_error("requested wrong type for configuration item "+name);
+  return s->getIPEndpoint();
+}
+
 
 string KolmoStruct::getString(const std::string& name)
 {
@@ -478,7 +520,7 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
 	ret->unregisterVariable(m.first);
     }
     else if(auto ptr = dynamic_cast<const KolmoInteger*>(m.second.get())) {
-      cerr<<prefix<<"Comparing a string"<<endl;
+      cerr<<prefix<<"Comparing an integer"<<endl;
       auto rhs=dynamic_cast<const KolmoInteger*>(other.getMember(m.first));
       if(*ptr != *rhs) {
 	cerr<<prefix<<"Field "<<m.first<<" is different!!"<<endl;
@@ -494,8 +536,11 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
 	cerr<<prefix<<"Field "<<m.first<<" is different!!"<<endl;
 	ret->setIPEndpointCA(m.first, rhs->getIPEndpoint());
       }
-      else
+      else {
+	cerr<<prefix<<"Was unchanged "<<ptr->getIPEndpoint().toStringWithPort()<<", "<<
+	  rhs->getIPEndpoint().toStringWithPort()<<endl;
 	ret->unregisterVariable(m.first);
+      }
     }
   }
   cerr<<prefix<<"Done with ourselves, had "<<visited.size()<<" members, checking what er missed on other side"<<endl;

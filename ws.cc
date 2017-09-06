@@ -203,7 +203,7 @@ void emitJSON(crow::response& resp, nlohmann::json& wv)
   resp.end();
 }
 
-void KolmoThread(KolmoConf* kc)
+void KolmoThread(KolmoConf* kc, ComboAddress ca)
 {
   crow::SimpleApp app;
   CROW_ROUTE(app, "/full-config")([kc](const crow::request& rec, crow::response& resp) {
@@ -243,17 +243,42 @@ void KolmoThread(KolmoConf* kc)
 
   CROW_ROUTE(app, "/ls<path>")([kc](const crow::request& rec, crow::response& resp, const std::string& path=std::string()) {
       cerr<<path<<endl;
+      string rpath=path.substr(1);
+      KolmoStruct* ks=&kc->d_main;
+
+      if(!rpath.empty()) {
+	cerr<<"Traversing path"<<endl;
+	auto ptr=ks->getValueAt(rpath);
+	ks=dynamic_cast<KolmoStruct*>(ptr);
+	if(!ks) {
+	  nlohmann::json item;
+	  item["description"] = ptr->description;
+	  item["runtime"] = ptr->runtime;
+	  item["unit"] = ptr->unit;
+	  item["mandatory"] = ptr->mandatory;
+	  item["value"]=ptr->getValue();
+	  item["default"]=ptr->defaultValue;
+	  emitJSON(resp, item);
+	  return;
+	}
+      }
+      
       nlohmann::json wv=nlohmann::json::object();
-      for(const auto& a : kc->d_main.getAll()) {
+      for(const auto& a : ks->getAll()) {
         nlohmann::json item;
         item["description"] = a.second->description;
+	item["runtime"] = a.second->runtime;
+	item["unit"] = a.second->unit;
+	item["mandatory"] = a.second->mandatory;
+	item["value"]=a.second->getValue();
+	item["default"]=a.second->defaultValue;
         wv[a.first]=item;
       }
       emitJSON(resp, wv);
     });
   
   
-  app.port(1234).bindaddr("127.0.0.1").multithreaded().run();
+  app.port(ntohs(ca.sin4.sin_port)).bindaddr(ca.toString()).multithreaded().run();
 }
 
 int main(int argc, char** argv)
@@ -262,7 +287,7 @@ int main(int argc, char** argv)
   KolmoConf kc;
   kc.initSchemaFromFile("ws-schema.lua");
   kc.initConfigFromLua("ws.conf");
-
+  kc.initConfigFromJSON("ws.json");
   kc.declareRuntime();
   kc.initConfigFromCmdline(argc, argv);
 
@@ -306,7 +331,10 @@ int main(int argc, char** argv)
   
   vector<std::thread> listeners;
 
-  listeners.emplace_back(KolmoThread, &kc);
+  auto addr=kc.d_main.getIPEndpoint("kolmo-server");
+
+  if(addr.sin4.sin_family) // this should actually be some kind of 'isSet()' thing
+    listeners.emplace_back(KolmoThread, &kc, addr);
   
   for(const auto& a : listenAddresses) {
     ComboAddress addr(a);

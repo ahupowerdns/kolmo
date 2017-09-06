@@ -3,19 +3,21 @@
 #include <crow/json.h>
 #include "minicurl.hh"
 #include "CLI/CLI.hpp"
+#include <boost/format.hpp>
 using namespace std;
-
-
 
 int main(int argc, char** argv)
 try
 {
   CLI::App app("kolctl");
 
-  vector<std::string> files;
-  string setstring;
-  app.add_option("-f,--file,file", files, "File name");
-  app.add_option("-s", setstring, "Set string");
+  vector<std::string> cmds;
+  string setstring, remote, schemafile, configfile;
+  app.add_option("--commands,command", cmds, "Commands");
+  app.add_option("-r,--remote,remote", remote, "Remote server");
+  app.add_option("--schema,schema", schemafile, "Schema file");
+  app.add_option("--config,c", configfile, "Config file");
+  app.add_option("-d,--do", setstring, "Set string");
 
   try {
     app.parse(argc, argv);
@@ -24,17 +26,58 @@ try
   }
   KolmoConf kc;
 
-  if(boost::starts_with(files[0], "http://") ||boost::starts_with(files[0], "https://")) {
+  if(!remote.empty()) {
     MiniCurl mc;
-    cout<<mc.getURL(files[0]+"/"+files[1])<<endl;
-    return 0;
-    
-  }
-  
-  kc.initSchemaFromFile(files[0]);
+    string cmd=cmds[0];
+    if(cmd=="ls") {
+      string res=mc.getURL(remote+"/ls/"+cmds[1]);
 
-  if(boost::ends_with(files[1], ".json")) {
-    ifstream ifs(files[1]);
+      nlohmann::json x;
+      x = nlohmann::json::parse(res);
+      
+      
+      boost::format fmt("%1$-20s %|25t|%2$s %|45t|%3$s");
+      for(auto iter=x.begin(); iter!=x.end();++iter) {
+	cout<<(fmt % iter.key() % iter.value()["value"].get<string>() % iter.value()["description"].get<string>()).str()<<endl;
+      }
+    }
+    else if(cmd=="set") {
+      string var, val;
+      
+      auto pos=cmds[1].find('=');
+      if(pos==string::npos) {
+	var=cmds[1];
+	val="true";
+      }
+      else {
+	var=cmds[1].substr(0, pos);
+	val=cmds[1].substr(pos+1);
+      }
+	  
+      string res=mc.getURL(remote+"/runtime/set-value?variable="+var+"&value="+val);
+	  
+      nlohmann::json x;
+      x = nlohmann::json::parse(res);
+      cout<<x<<endl;
+    }
+    else if(cmd=="minimal-config") {
+      string res=mc.getURL(remote+"/minimal-config");
+      cout<<res<<endl;
+    }
+    else if(cmd=="delta-config") {
+      string res=mc.getURL(remote+"/delta-config");
+      cout<<res<<endl;
+    }
+    else
+      cerr<<"Unknown command '"<<cmd<<"'\n";
+
+    return 0;
+  }
+
+  kc.initSchemaFromFile(schemafile);
+
+  if(boost::ends_with(configfile, ".json")) {
+    ifstream ifs(configfile);
     nlohmann::json wv;
     ifs >> wv;
 
@@ -47,7 +90,7 @@ try
     return 0;
   }
   else {
-    kc.initConfigFromLua(files[1]);
+    kc.initConfigFromLua(configfile);
   }
 
   kc.declareRuntime();
