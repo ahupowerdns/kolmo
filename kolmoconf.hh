@@ -40,6 +40,7 @@ public:
     d_ties.push_back(v);
     v(this);
   }
+
 protected:
   void runTies()
   {

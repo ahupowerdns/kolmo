@@ -517,6 +517,12 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
         if(*ptr == *rhs)
           newstruct->unregisterVariable(m.first);
       }
+      else       if(auto ptr = dynamic_cast<const KolmoString*>(m.second)) {
+        auto rhs=dynamic_cast<const KolmoString*>(dynamic_cast<const KolmoStruct*>(f->second.get())->getMember(m.first));
+        if(*ptr == *rhs)
+          newstruct->unregisterVariable(m.first);
+      }
+
       // XXX check other defaults too
     }
 
