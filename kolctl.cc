@@ -37,13 +37,13 @@ try
     ifstream ifs(files[1]);
     nlohmann::json wv;
     ifs >> wv;
-    for(auto iter=wv.begin() ; iter != wv.end(); ++iter) {
-      cout<<iter.key()<<endl;
-      if(auto ptr=dynamic_cast<KolmoBool*>(kc.d_main.getMember(iter.key()))) {
-        ptr->setBool(iter.value().get<bool>());
-        cerr<<"SETTING!!"<<endl;
-      }
-    }
+
+    JsonToKS(wv, &kc.d_main);
+
+    auto res=kc.getMinimalConfig();
+    nlohmann::json out;
+    KSToJson(res.get(), out);
+    cout<<std::setw(4)<<out<<endl;
     return 0;
   }
   else {

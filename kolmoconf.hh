@@ -41,6 +41,23 @@ public:
     v(this);
   }
 
+  virtual bool operator==(const KolmoVal& rhs) const=0;
+  virtual bool operator==(const std::unique_ptr<KolmoVal>& rhs) const
+  {
+    return operator==(*rhs.get());
+  }
+
+  bool operator!=(const KolmoVal& rhs) const
+  {
+    return !this->operator==(rhs);
+  }
+
+  bool operator!=(const std::unique_ptr<KolmoVal>& rhs) const
+  {
+    return !this->operator==(*rhs.get());
+  }
+
+  
 protected:
   void runTies()
   {
@@ -105,13 +122,9 @@ public:
     runTies();
   }
 
-  bool operator==(const KolmoBool& rhs) const
+  bool operator==(const KolmoVal& rhs) const override
   {
-    return d_v == rhs.d_v;
-  }
-  bool operator!=(const KolmoBool& rhs) const
-  {
-    return !operator==(rhs);
+    return typeid(*this) == typeid(rhs) && d_v == dynamic_cast<const KolmoBool&>(rhs).d_v;
   }
   
 private:
@@ -154,16 +167,11 @@ public:
     return ret.str();
   }
 
-  bool operator==(const KolmoString& rhs) const
+  bool operator==(const KolmoVal& rhs) const override
   {
-    return d_v == rhs.d_v;
-  }
-  bool operator!=(const KolmoString& rhs) const
-  {
-    return d_v != rhs.d_v;
+    return typeid(*this) == typeid(rhs) && d_v == dynamic_cast<const KolmoString&>(rhs).d_v;
   }
 
-  
   std::string d_v;  
 };
 
@@ -233,19 +241,14 @@ public:
     return d_v;
   }
 
+
+  bool operator==(const KolmoVal& rhs) const override
+  {
+    const auto& casted = dynamic_cast<const KolmoIPEndpoint&>(rhs);
+    return typeid(*this) == typeid(rhs) && ((d_v.sin4.sin_family ==0 && casted.d_v.sin4.sin_family ==0) || d_v == casted.d_v);
+  }
+
   
-  bool operator==(const KolmoIPEndpoint& rhs) const
-  {
-    if(d_v.sin4.sin_family == 0 && rhs.d_v.sin4.sin_family==0)
-      return true;
-
-    return d_v == rhs.d_v;
-  }
-  bool operator!=(const KolmoIPEndpoint& rhs) const
-  {
-    return !operator==(rhs);
-  }
-
   
 private:
   ComboAddress d_v;
@@ -295,17 +298,11 @@ public:
     return ret.str();
   }
 
-  bool operator==(const KolmoInteger& rhs) const
+  bool operator==(const KolmoVal& rhs) const override
   {
-    return d_v == rhs.d_v;
-  }
-  bool operator!=(const KolmoInteger& rhs) const
-  {
-    return d_v != rhs.d_v;
+    return typeid(*this) == typeid(rhs) && d_v == dynamic_cast<const KolmoInteger&>(rhs).d_v;
   }
 
-
-  
 private:
   
   uint64_t d_v;  
@@ -326,6 +323,10 @@ public:
   void setStruct(const std::string& name, std::unique_ptr<KolmoStruct> s);
   void setInteger(const std::string& name, uint64_t value);
   KolmoVal* getMember(const std::string& name) const;
+  bool isMember(const std::string& name) const
+  {
+    return d_store.count(name);
+  }
   KolmoStruct* getStruct(const std::string& name);
   void registerVariableLua(const std::string& name, const std::string& type, std::unordered_map<std::string, std::string> attributes);
   void registerBool(const std::string& name, bool v);
@@ -396,8 +397,15 @@ public:
   {
     return d_store.empty();
   }
-private:
+
+  bool operator==(const KolmoVal& rhs) const override
+  {
+    return typeid(*this) == typeid(rhs) && d_store == dynamic_cast<const KolmoStruct&>(rhs).d_store;
+  }
+    
   std::string d_membertype, d_mytype;
+private:
+
   std::map<std::string, std::unique_ptr<KolmoVal>> d_store;  
 };
 
@@ -465,3 +473,4 @@ private:
 };
 
 void KSToJson(KolmoStruct* ks, nlohmann::json& x);
+void JsonToKS(nlohmann::json& x, KolmoStruct* ks, int indent=0);

@@ -15,7 +15,7 @@ site=createClass("site", {})
 site:registerVariable("name", "string", { runtime="false", description="Hostname of this website"})
 site:registerVariable("enabled", "bool", { runtime="false", default="true", description="If this site is enabled"})
 site:registerVariable("path", "string", { runtime="true", description="Path on filesystem where content is hosted"})
-site:registerVariable("listen", "struct", { runtime="false", description="IP endpoints we listen on"})
+site:registerVariable("listen", "struct", { member_type="ipendpoint", runtime="false", description="IP endpoints we listen on"})
 site:registerVariable("redirect-to-https", "bool", { default="false", runtime="true", description="If all http requests should be redirected to https"})
 
 sites=main:registerVariable("sites", "struct", {member_type="site", runtime="false", description="Sites we serve"})

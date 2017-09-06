@@ -512,18 +512,8 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
     auto f = d_prototypes.find(newstruct->d_mytype);
     // XXX check here
     for(auto& m : newstruct->getAll()) {
-      if(auto ptr = dynamic_cast<const KolmoBool*>(m.second)) {
-        auto rhs=dynamic_cast<const KolmoBool*>(dynamic_cast<const KolmoStruct*>(f->second.get())->getMember(m.first));
-        if(*ptr == *rhs)
+      if(*m.second == *dynamic_cast<const KolmoStruct*>(f->second.get())->getMember(m.first))
           newstruct->unregisterVariable(m.first);
-      }
-      else       if(auto ptr = dynamic_cast<const KolmoString*>(m.second)) {
-        auto rhs=dynamic_cast<const KolmoString*>(dynamic_cast<const KolmoStruct*>(f->second.get())->getMember(m.first));
-        if(*ptr == *rhs)
-          newstruct->unregisterVariable(m.first);
-      }
-
-      // XXX check other defaults too
     }
 
     
@@ -555,3 +545,40 @@ void KSToJson(KolmoStruct* ks, nlohmann::json& x)
   }
 }
 
+
+void JsonToKS(nlohmann::json& x, KolmoStruct* ks, int indent)
+{
+  string prefix(indent, '\t');
+  cout<<prefix<<"membertype: '"<<ks->d_membertype<<"'"<<endl;
+  for(auto iter=x.begin() ; iter != x.end(); ++iter) {
+    cout<<prefix<<iter.key()<<endl;
+    if(!ks->d_membertype.empty() && !ks->isMember(iter.key())) {
+      cout<<prefix<<"This struct is a typed vector, creating entry of type "<<ks->d_membertype<<" for "<<iter.key()<<endl;
+
+      // HURRRR!!! This should actually check if member type is a vector or not XXX
+      if(ks->d_membertype=="ipendpoint") {
+	ks->registerIPEndpoint(iter.key(), "");
+      }
+      else {
+	auto nstruct=ks->getNewMember();
+	ks->registerStructMember(iter.key(), nstruct);
+      }
+    }
+
+    if(auto ptr=dynamic_cast<KolmoStruct*>(ks->getMember(iter.key()))) {
+      cout<<prefix<<"This is a struct, recursing"<<endl;
+      nlohmann::json nstruct;
+      JsonToKS(iter.value(), ptr, indent+1);
+    }
+    else if(auto ptr=ks->getMember(iter.key())) {
+      cout<<prefix<<"SETTING to "<<iter.value()<<endl;
+      if(iter.value().is_boolean())
+	ptr->setValue(iter.value().get<bool>() ? "true" : "false");
+      else if(iter.value().is_string())
+	ptr->setValue(iter.value().get<string>());
+      else if(iter.value().is_number())
+	ptr->setValue(std::to_string(iter.value().get<int>()));
+
+    }
+  }
+}
