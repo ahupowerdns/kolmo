@@ -29,3 +29,19 @@ listener:registerVariable("key-file", "string", { runtime="false", description="
 listener:registerVariable("pem-file", "string", { runtime="false", description="PEM file"})
 
 listeners=main:registerVariable("listeners", "struct", { runtime="false", member_type="listener", description="Optional configurations per IP address listener"})
+
+
+logger=createClass("logger", {})
+logger:registerVariable("syslog", "bool", { default="true", runtime="false", description="If this logger should emit to syslog"})
+logger:registerVariable("syslog-facily", "string", { default="daemon", runtime="false", description="If this logger should emit to syslog"})
+logger:registerVariable("log-errors", "bool", { default="true", runtime="true", description="If this logger should log errors"})
+logger:registerVariable("log-warning", "bool", { default="true", runtime="true", description="If this logger should log warnings"})
+logger:registerVariable("log-hits", "bool", { default="false", runtime="true", description="If this logger should log website hits"})
+logger:registerVariable("log-file", "string", { default="", runtime="false", description="Logger logs to this file"})
+
+main:registerVariable("loggers", "struct", { runtime="false", member_type="logger", description="Loggers that log events and hits" } )
+loggers=main:getStruct("loggers")
+logger=loggers:getNewMember()
+loggers:registerStructMember("messages", logger)
+
+main:registerVariable("kolmo-server", "ipendpoint", {default="127.0.0.1:1234", runtime="false", description="If we should launch a kolmo server"})
