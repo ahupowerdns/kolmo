@@ -95,6 +95,25 @@ void KolmoStruct::setValueAt(const std::string& name, const std::string& value)
   }  
 }
 
+void KolmoStruct::rmValueAt(const std::string& name)
+{
+  vector<string> split;
+  boost::split(split,name,boost::is_any_of("/"));
+  auto ptr=this;
+  for(auto iter=split.begin(); iter != split.end(); ++iter) {
+    if(iter + 1 != split.end()) {
+      ptr=dynamic_cast<KolmoStruct*>(ptr->getMember(*iter));
+      if(!ptr) {
+        throw std::runtime_error("Traversing variable path, hit non-struct");
+      }
+    }
+    else {
+      ptr->d_store.erase(*iter);
+    }
+  }  
+}
+
+
 KolmoVal* KolmoStruct::getValueAt(const std::string& name) const
 {
   vector<string> split;
@@ -190,7 +209,7 @@ void KolmoConf::luaInit()
   d_lua->registerFunction("setIPEndpoint", &KolmoStruct::setIPEndpoint);
   d_lua->registerFunction("setBool", &KolmoStruct::setBool);
 
-  d_lua->registerFunction("addStringToStruct", &KolmoStruct::addStringToStruct);
+  d_lua->registerFunction("addValueToStruct", &KolmoStruct::addValueToStruct);
 
   
   d_lua->writeFunction("createClass", [this](const std::string& name,
@@ -298,10 +317,10 @@ bool KolmoStruct::getBool(const std::string& name)
 {
   auto f=d_store.find(name);
   if(f==d_store.end())
-    throw std::runtime_error("requested non-existent configuration item "+name);
+    throw std::runtime_error("requested non-existent configuration item '"+name+"'");
   auto s=dynamic_cast<KolmoBool*>(f->second.get());
   if(!s)
-    throw std::runtime_error("requested wrong type for configuration item "+name);
+    throw std::runtime_error("requested wrong type for configuration item '"+name+"'");
   return s->getBool();
 }
 
@@ -309,7 +328,7 @@ ComboAddress KolmoStruct::getIPEndpoint(const std::string& name) const
 {
   auto f=d_store.find(name);
   if(f==d_store.end())
-    throw std::runtime_error("requested non-existent configuration item "+name);
+    throw std::runtime_error("requested non-existent IPEndpoint configuration item '"+name+"'");
   auto s=dynamic_cast<KolmoIPEndpoint*>(f->second.get());
   if(!s)
     throw std::runtime_error("requested wrong type for configuration item "+name);
@@ -321,10 +340,10 @@ string KolmoStruct::getString(const std::string& name)
 {
   auto f=d_store.find(name);
   if(f==d_store.end())
-    throw std::runtime_error("requested non-existent configuration item "+name);
+    throw std::runtime_error("requested non-existent string configuration item '"+name+"'");
   auto s=dynamic_cast<KolmoString*>(f->second.get());
   if(!s)
-    throw std::runtime_error("requested wrong type for configuration item "+name);
+    throw std::runtime_error("requested wrong type (string) for configuration item "+name);
   return s->d_v;
 }
 
@@ -333,10 +352,10 @@ void KolmoStruct::setString(const std::string& name, const std::string& val)
 {
   auto f=d_store.find(name);
   if(f==d_store.end())
-    throw std::runtime_error("requested non-existent configuration item "+name);
+    throw std::runtime_error("requested non-existent string configuration item '"+name+"'");
   auto s=dynamic_cast<KolmoString*>(f->second.get());
   if(!s)
-    throw std::runtime_error("requested wrong type for configuration item "+name);
+    throw std::runtime_error("requested wrong type (string) for configuration item "+name);
   s->d_v = val;
 }
 
@@ -347,7 +366,7 @@ void KolmoStruct::setStruct(const std::string& name, std::unique_ptr<KolmoStruct
 }
 
 
-void KolmoStruct::addStringToStruct(const std::string& name, const std::string& val)
+void KolmoStruct::addValueToStruct(const std::string& name, const std::string& val)
 {
   auto f=d_store.find(name);
   if(f==d_store.end())
@@ -356,7 +375,22 @@ void KolmoStruct::addStringToStruct(const std::string& name, const std::string& 
   if(!s)
     throw std::runtime_error("requested wrong type struct for configuration item "+name);
   //  cout<<"Adding to struct called "<<name<<", description: '"<<s->description<<"'"<<endl;
-  s->d_store[std::to_string(s->d_store.size())]=std::make_unique<KolmoString>(val);
+  auto iter = d_prototypes.find(s->d_membertype);
+  if(iter == d_prototypes.end())
+    throw std::runtime_error("configuration item "+name+" should contain "+s->d_membertype+" but can't find it");
+  auto thing=iter->second->clone();
+  thing->setValue(val);
+  s->d_store[std::to_string(s->d_store.size())]=std::move(thing);
+}
+
+void KolmoStruct::addValue(const std::string& val)
+{
+  auto iter = d_prototypes.find(d_membertype);
+  if(iter == d_prototypes.end())
+    throw std::runtime_error("configuration item should contain '"+d_membertype+"' but can't find it");
+  auto thing=iter->second->clone();
+  thing->setValue(val);
+  d_store[std::to_string(d_store.size())]=std::move(thing);
 }
 
 void KolmoStruct::setBool(const std::string& name, bool val)
@@ -366,7 +400,7 @@ void KolmoStruct::setBool(const std::string& name, bool val)
     throw std::runtime_error("requested non-existent configuration item "+name);
   auto s=dynamic_cast<KolmoBool*>(f->second.get());
   if(!s)
-    throw std::runtime_error("requested wrong type for configuration item "+name);
+    throw std::runtime_error("requested wrong type (bool) for configuration item "+name);
   s->setBool(val);
 }
 
@@ -377,7 +411,7 @@ void KolmoStruct::setInteger(const std::string& name, uint64_t val)
     throw std::runtime_error("requested non-existent configuration item "+name);
   auto s=dynamic_cast<KolmoInteger*>(f->second.get());
   if(!s)
-    throw std::runtime_error("requested wrong type for configuration item "+name);
+    throw std::runtime_error("requested wrong type (integer) for configuration item "+name);
   s->setInteger(val);
 }
 
@@ -389,7 +423,7 @@ void KolmoStruct::setIPEndpoint(const std::string& name, const std::string& in)
     throw std::runtime_error("requested non-existent configuration item "+name);
   auto s=dynamic_cast<KolmoIPEndpoint*>(f->second.get());
   if(!s)
-    throw std::runtime_error("requested wrong type for configuration item "+name);
+    throw std::runtime_error("requested wrong type (ipendpoint) for configuration item "+name);
   s->setIPEndpoint(ComboAddress(in));
 }
 
@@ -401,7 +435,7 @@ void KolmoStruct::setIPEndpointCA(const std::string& name, const ComboAddress& c
     throw std::runtime_error("requested non-existent configuration item "+name);
   auto s=dynamic_cast<KolmoIPEndpoint*>(f->second.get());
   if(!s)
-    throw std::runtime_error("requested wrong type for configuration item "+name);
+    throw std::runtime_error("requested wrong type (ipendpoint) for configuration item "+name);
   s->setIPEndpoint(ca);
 }
 
@@ -414,7 +448,7 @@ KolmoStruct* KolmoStruct::getStruct(const std::string& name)
     throw std::runtime_error("requested non-existent configuration item "+name);
   auto s=dynamic_cast<KolmoStruct*>(f->second.get());
   if(!s)
-    throw std::runtime_error("requested wrong type for configuration item "+name);
+    throw std::runtime_error("requested wrong type (struct) for configuration item "+name);
   return s;
 }
 
@@ -422,7 +456,7 @@ KolmoVal* KolmoStruct::getMember(const std::string& name) const
 {
   auto f=d_store.find(name);
   if(f==d_store.end())
-    throw std::runtime_error("requested non-existent configuration item "+name);
+    throw std::runtime_error("requested non-existent configuration member item '"+name+"'");
   return f->second.get();
 }
 
@@ -466,23 +500,24 @@ void KolmoStruct::tieBool(const std::string& name, std::atomic<bool>* target)
 
 std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const KolmoStruct& other, int nest) const
 {
+  bool dbg=false;
   string prefix(nest, '\t');
   std::unique_ptr<KolmoStruct> ret=std::unique_ptr<KolmoStruct>(dynamic_cast<KolmoStruct*>(templ.clone().release()));
-  cerr<<prefix<<"In diff"<<endl;
+  if(dbg) cerr<<prefix<<"In diff"<<endl;
 
   set<std::string> visited;
   for(const auto& m : d_store) {
-    cerr<<prefix<<"Looking at "<<m.first<<endl;
+    if(dbg) cerr<<prefix<<"Looking at "<<m.first<<endl;
     visited.insert(m.first);
     if(auto ptr = dynamic_cast<const KolmoStruct*>(m.second.get())) {
       
-      cerr<<prefix<<"Is a struct, membertype: "<<ptr->d_mytype<<endl;
+      if(dbg) cerr<<prefix<<"Is a struct, membertype: "<<ptr->d_mytype<<endl;
       auto f = d_prototypes.find(ptr->d_mytype);
       if(f == d_prototypes.end()) {
-	cerr<<prefix<<"Have a struct member of unknown default, template is empty"<<endl;
+	if(dbg) cerr<<prefix<<"Have a struct member of unknown default, template is empty"<<endl;
 	auto subdiff=ptr->diff(KolmoStruct(), *dynamic_cast<KolmoStruct*>(other.getMember(m.first)), nest+1);
 	if(subdiff->empty()) {
-	  cerr<<prefix<<"Nothing came back"<<endl;
+	  if(dbg) cerr<<prefix<<"Nothing came back"<<endl;
 	  ret->unregisterVariable(m.first);
 	}
 	else
@@ -492,7 +527,7 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
 	auto s=dynamic_cast<KolmoStruct*>(f->second.get());
 	auto subdiff=ptr->diff(*s, *dynamic_cast<KolmoStruct*>(other.getMember(m.first)), nest+1);
 	if(subdiff->empty()) {
-	  cerr<<prefix<<"Nothing came back"<<endl;
+	  if(dbg) cerr<<prefix<<"Nothing came back"<<endl;
 	  ret->unregisterVariable(m.first);
 	}
 	else
@@ -500,59 +535,59 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
       }
     }
     else if(auto ptr = dynamic_cast<const KolmoBool*>(m.second.get())) {
-      cerr<<prefix<<"Comparing a bool"<<endl;
+      if(dbg) cerr<<prefix<<"Comparing a bool"<<endl;
       auto rhs=dynamic_cast<const KolmoBool*>(other.getMember(m.first));
       if(*ptr != *rhs) {
-	cerr<<prefix<<"Field "<<m.first<<" is different!!"<<endl;
+	if(dbg) cerr<<prefix<<"Field "<<m.first<<" is different!!"<<endl;
 	ret->setBool(m.first, rhs->getBool());
       }
       else
 	ret->unregisterVariable(m.first);
     }
     else if(auto ptr = dynamic_cast<const KolmoString*>(m.second.get())) {
-      cerr<<prefix<<"Comparing a string"<<endl;
+      if(dbg) cerr<<prefix<<"Comparing a string"<<endl;
       auto rhs=dynamic_cast<const KolmoString*>(other.getMember(m.first));
       if(*ptr != *rhs) {
-	cerr<<prefix<<"Field "<<m.first<<" is different!!"<<endl;
+	if(dbg) cerr<<prefix<<"Field "<<m.first<<" is different!!"<<endl;
 	ret->setString(m.first, rhs->getValue());
       }
       else
 	ret->unregisterVariable(m.first);
     }
     else if(auto ptr = dynamic_cast<const KolmoInteger*>(m.second.get())) {
-      cerr<<prefix<<"Comparing an integer"<<endl;
+      if(dbg) cerr<<prefix<<"Comparing an integer"<<endl;
       auto rhs=dynamic_cast<const KolmoInteger*>(other.getMember(m.first));
       if(*ptr != *rhs) {
-	cerr<<prefix<<"Field "<<m.first<<" is different!!"<<endl;
+	if(dbg) cerr<<prefix<<"Field "<<m.first<<" is different!!"<<endl;
 	ret->setInteger(m.first, rhs->getInteger());
       }
       else
 	ret->unregisterVariable(m.first);
     }
     else if(auto ptr = dynamic_cast<const KolmoIPEndpoint*>(m.second.get())) {
-      cerr<<prefix<<"Comparing an IP Endpoint"<<endl;
+      if(dbg) cerr<<prefix<<"Comparing an IP Endpoint"<<endl;
       auto rhs=dynamic_cast<const KolmoIPEndpoint*>(other.getMember(m.first));
       if(*ptr != *rhs) {
-	cerr<<prefix<<"Field "<<m.first<<" is different!!"<<endl;
+	if(dbg) cerr<<prefix<<"Field "<<m.first<<" is different!!"<<endl;
 	ret->setIPEndpointCA(m.first, rhs->getIPEndpoint());
       }
       else {
-	cerr<<prefix<<"Was unchanged "<<ptr->getIPEndpoint().toStringWithPort()<<", "<<
+	if(dbg) cerr<<prefix<<"Was unchanged "<<ptr->getIPEndpoint().toStringWithPort()<<", "<<
 	  rhs->getIPEndpoint().toStringWithPort()<<endl;
 	ret->unregisterVariable(m.first);
       }
     }
   }
-  cerr<<prefix<<"Done with ourselves, had "<<visited.size()<<" members, checking what er missed on other side"<<endl;
+  if(dbg) cerr<<prefix<<"Done with ourselves, had "<<visited.size()<<" members, checking what er missed on other side"<<endl;
   for(const auto& rhs : other.getAll()) {
-    cerr<<prefix<<"Other field: "<<rhs.first<<endl;
+    if(dbg) cerr<<prefix<<"Other field: "<<rhs.first<<endl;
     if(visited.count(rhs.first)) {
-      cerr<<prefix<<"Skipping other field: "<<rhs.first<<endl;
+      if(dbg) cerr<<prefix<<"Skipping other field: "<<rhs.first<<endl;
       continue;
     }
 
     auto newstruct=std::unique_ptr<KolmoStruct>(dynamic_cast<KolmoStruct*>(rhs.second->clone().release()));
-    cerr<<prefix<<"Adding other field "<<rhs.first<<", type="<<newstruct->d_mytype<<endl;
+    if(dbg) cerr<<prefix<<"Adding other field "<<rhs.first<<", type="<<newstruct->d_mytype<<endl;
 
     auto f = d_prototypes.find(newstruct->d_mytype);
     // XXX check here
@@ -594,11 +629,13 @@ void KSToJson(KolmoStruct* ks, nlohmann::json& x)
 void JsonToKS(nlohmann::json& x, KolmoStruct* ks, int indent)
 {
   string prefix(indent, '\t');
-  cout<<prefix<<"membertype: '"<<ks->d_membertype<<"'"<<endl;
+  bool dbg=false;
+  
+  if(dbg)cout<<prefix<<"membertype: '"<<ks->d_membertype<<"'"<<endl;
   for(auto iter=x.begin() ; iter != x.end(); ++iter) {
-    cout<<prefix<<iter.key()<<endl;
+    if(dbg)cout<<prefix<<iter.key()<<endl;
     if(!ks->d_membertype.empty() && !ks->isMember(iter.key())) {
-      cout<<prefix<<"This struct is a typed vector, creating entry of type "<<ks->d_membertype<<" for "<<iter.key()<<endl;
+      if(dbg)cout<<prefix<<"This struct is a typed vector, creating entry of type "<<ks->d_membertype<<" for "<<iter.key()<<endl;
 
       // HURRRR!!! This should actually check if member type is a vector or not XXX
       if(ks->d_membertype=="ipendpoint") {
@@ -611,12 +648,12 @@ void JsonToKS(nlohmann::json& x, KolmoStruct* ks, int indent)
     }
 
     if(auto ptr=dynamic_cast<KolmoStruct*>(ks->getMember(iter.key()))) {
-      cout<<prefix<<"This is a struct, recursing"<<endl;
+      if(dbg)cout<<prefix<<"This is a struct, recursing"<<endl;
       nlohmann::json nstruct;
       JsonToKS(iter.value(), ptr, indent+1);
     }
     else if(auto ptr=ks->getMember(iter.key())) {
-      cout<<prefix<<"SETTING to "<<iter.value()<<endl;
+      if(dbg)cout<<prefix<<"SETTING to "<<iter.value()<<endl;
       if(iter.value().is_boolean())
 	ptr->setValue(iter.value().get<bool>() ? "true" : "false");
       else if(iter.value().is_string())

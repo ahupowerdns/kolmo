@@ -287,7 +287,7 @@ int main(int argc, char** argv)
   KolmoConf kc;
   kc.initSchemaFromFile("ws-schema.lua");
   kc.initConfigFromLua("ws.conf");
-  kc.initConfigFromJSON("ws.json");
+  //  kc.initConfigFromJSON("ws.json");
   kc.declareRuntime();
   kc.initConfigFromCmdline(argc, argv);
 
@@ -301,7 +301,7 @@ int main(int argc, char** argv)
     cerr<<"Verbose is false"<<endl;
   }
 
-  set<string> listenAddresses;
+  set<ComboAddress> listenAddresses;
   auto sites = kc.d_main.getStruct("sites"); // XXX SHOULd BE TYPESAFE
 
   for(const auto& m : sites->getMembers()) {
@@ -317,8 +317,9 @@ int main(int argc, char** argv)
 
       auto listeners = site->getStruct("listen");
       for(const auto& i : listeners->getMembers()) {
-        cerr<<listeners->getString(i)<<endl;
-        listenAddresses.insert(listeners->getString(i));
+        ComboAddress ca=listeners->getIPEndpoint(i);
+        cerr<<ca.toStringWithPort()<<endl;
+        listenAddresses.insert(ca);
       }
     }
     cerr<<endl;
@@ -336,8 +337,7 @@ int main(int argc, char** argv)
   if(addr.sin4.sin_family) // this should actually be some kind of 'isSet()' thing
     listeners.emplace_back(KolmoThread, &kc, addr);
   
-  for(const auto& a : listenAddresses) {
-    ComboAddress addr(a);
+  for(const auto& addr : listenAddresses) {
     listeners.emplace_back(listenThread, &kc, addr);
   }
   

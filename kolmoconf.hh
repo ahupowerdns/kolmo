@@ -346,7 +346,8 @@ public:
   void registerIPEndpoint(const std::string& name, const std::string& );
   void registerStruct(const std::string& name, const std::string& );
   void registerStructMember(const std::string& name, KolmoStruct* s);
-  void addStringToStruct(const std::string& name, const std::string& val);
+  void addValueToStruct(const std::string& name, const std::string& val);
+  void addValue(const std::string& val);
 
   KolmoStruct* getNewMember();
   std::string getValue() const override
@@ -387,6 +388,7 @@ public:
     abort();
   } 
   void setValueAt(const std::string& str, const std::string& val);
+  void rmValueAt(const std::string& str);
   KolmoVal* getValueAt(const std::string& name) const;
   std::string display(int indent=0) const
   {
@@ -465,14 +467,14 @@ public:
     g_kolmoRuntimeDeclared=true;
   }
 
-  std::unique_ptr<KolmoStruct> getRuntimeDiff() 
+  std::unique_ptr<KolmoStruct> getRuntimeDiff() const
   {
     return dynamic_cast<const KolmoStruct*>(d_startup.get())->diff(
 								   *dynamic_cast<const KolmoStruct*>(d_default.get()),
 								   d_main);
   }
 
-  std::unique_ptr<KolmoStruct> getMinimalConfig() 
+  std::unique_ptr<KolmoStruct> getMinimalConfig() const
   {
     //    return d_main.diff(*dynamic_cast<const KolmoStruct*>(d_default.get()), *dynamic_cast<const KolmoStruct*>(d_default.get()));
     return dynamic_cast<const KolmoStruct*>(d_default.get())->diff(
