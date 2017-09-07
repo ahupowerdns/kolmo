@@ -286,8 +286,8 @@ int main(int argc, char** argv)
   //  crow::logger::setLogLevel(crow::LogLevel::Debug);
   KolmoConf kc;
   kc.initSchemaFromFile("ws-schema.lua");
-  kc.initConfigFromLua("ws.conf");
-  //  kc.initConfigFromJSON("ws.json");
+  //kc.initConfigFromLua("ws.conf");
+  kc.initConfigFromJSON("ws.json");
   kc.declareRuntime();
   kc.initConfigFromCmdline(argc, argv);
 
