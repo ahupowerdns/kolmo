@@ -25,6 +25,7 @@ public:
     defaultValue = rhs.defaultValue;
     description = rhs.description;
     cmdline = rhs.cmdline;
+    check = rhs.check;
     unit = rhs.unit;
   }
   bool mandatory{false};
@@ -33,6 +34,7 @@ public:
   std::string description;
   std::string unit;
   std::string cmdline;
+  std::string check;
   virtual void setValue(const std::string&)=0;
   virtual std::string getValue() const=0;
   virtual std::string display(int indent=0) const=0;
@@ -263,7 +265,7 @@ private:
 class KolmoInteger : public KolmoVal
 {
 public:
-  explicit KolmoInteger(uint64_t v) : d_v(v)
+  explicit KolmoInteger(int64_t v) : d_v(v)
   {}
 
   static std::unique_ptr<KolmoVal> make(uint64_t v)
@@ -281,7 +283,7 @@ public:
   void setValue(const std::string& in)
   {
     checkRuntime();
-    d_v=atoi(in.c_str()); // XXX 64 bit
+    setInteger(atoi(in.c_str())); // XXX 64 bit
   }
 
   std::string getValue() const override
@@ -294,10 +296,7 @@ public:
     return d_v;
   }
 
-  void setInteger(uint64_t v)
-  {
-    d_v=v;
-  }
+  void setInteger(int64_t v);
 
   std::string display(int indent=0) const
   {
@@ -316,7 +315,7 @@ public:
 
 private:
   
-  uint64_t d_v;  
+  int64_t d_v;  
 };
 
 

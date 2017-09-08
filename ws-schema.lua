@@ -3,7 +3,14 @@ main:registerVariable("verbose", "bool", { default="true", runtime="true", cmdli
 
 main:registerVariable("server-name", "string", {default="", runtime="true", description="Name this server reports as by default"})
 
-main:registerVariable("client-timeout", "integer", {default="5000", runtime="false", unit="milliseconds", description="Timeout before client gets disconnected"})
+main:registerVariable("client-timeout", "integer",
+                                        {
+                                                default="5000",
+                                                runtime="true",
+                                                unit="milliseconds",
+                                                description="Timeout before client gets disconnected",
+                                                check='if(x < 1) then error("Timeout must be at least one millisecond") end'
+                                        })
 main:registerVariable("max-connections", "integer", {default="200", runtime="false", unit="connections", description="Maximum number of versions"})
 main:registerVariable("hide-server-version", "bool", {default="false", runtime="true", description="If we should hide server version number"})
 main:registerVariable("hide-server-type", "bool", {default="false", runtime="true", description="If we should hide server type"})

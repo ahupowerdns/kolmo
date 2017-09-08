@@ -160,6 +160,12 @@ void KolmoStruct::registerVariableLua(const std::string& name, const std::string
   iter = attributes.find("runtime");
   if(iter != attributes.end())
     thing->runtime=iter->second=="true";
+
+  iter = attributes.find("check");
+  if(iter != attributes.end())
+    thing->check=iter->second;
+
+  
   iter = attributes.find("description");
   if(iter != attributes.end())
     thing->description=iter->second;
@@ -471,6 +477,37 @@ void KolmoStruct::tieBool(const std::string& name, std::atomic<bool>* target)
     });
 }
 
+
+void KolmoInteger::setInteger(int64_t v)
+{
+  cerr<<"setInteger called"<<endl;
+  if(!check.empty()) {
+    try {
+      LuaContext lc;
+      lc.writeFunction("error", [](const std::string& str) {
+          throw std::runtime_error(str);
+        });
+      
+      string func="function func(x) "+check+ " end";
+      cerr<<"Running check: "<<func<<endl;
+      lc.executeCode(func);
+      lc.executeCode("func("+std::to_string(v)+")");
+    }
+    catch(const LuaContext::ExecutionErrorException& e) {
+      std::cerr << e.what(); 
+      try {
+        std::rethrow_if_nested(e);
+        
+        std::cerr << std::endl;
+        abort();
+      } catch(const std::exception& ne) {
+        throw;
+      }
+    }
+  }
+  d_v = v;
+  
+}
 
 /*
 
