@@ -480,7 +480,6 @@ void KolmoStruct::tieBool(const std::string& name, std::atomic<bool>* target)
 
 void KolmoInteger::setInteger(int64_t v)
 {
-  cerr<<"setInteger called"<<endl;
   if(!check.empty()) {
     try {
       LuaContext lc;
