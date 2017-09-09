@@ -283,6 +283,170 @@ private:
   ComboAddress d_v;
 };
 
+
+class KolmoIPAddress : public KolmoVal
+{
+public:
+  explicit KolmoIPAddress(const std::string& str) 
+  {
+    d_v.sin4.sin_port=0;
+    if(str.empty())
+      d_v.sin4.sin_family=0;
+    else
+      d_v=ComboAddress(str);
+
+    if(d_v.sin4.sin_port)
+      throw std::runtime_error("An IP address has no port number");
+  }
+
+  explicit KolmoIPAddress(const ComboAddress& ca) : d_v(ca)
+  {}
+
+  std::string getTypename() const override
+  {
+    return "ipaddress";
+  }
+
+  explicit KolmoIPAddress()
+  {
+    d_v.sin4.sin_family=0;
+  }
+  
+  static std::unique_ptr<KolmoVal> make(const std::string& str)
+  {
+    return std::make_unique<KolmoIPAddress>(str);
+  }
+
+  std::unique_ptr<KolmoVal> clone() const
+  {
+    auto ret=std::make_unique<KolmoIPAddress>(d_v);
+    ret->copyInBasics(*this);
+    return ret;
+  }
+
+  void setValue(const std::string& in)
+  {
+    checkRuntime();
+    if(in.empty())
+      d_v.sin4.sin_family=0;
+    else
+      setIPAddress(ComboAddress(in));
+  }
+
+  std::string getValue() const override
+  {
+    if(d_v.sin4.sin_family)
+      return d_v.toString();
+    else
+      return "";
+  }
+  
+  std::string display(int indent=0) const
+  {
+    std::ostringstream ret;
+    ret<<std::string(indent, ' ')<<getValue()<<" ["<<description<<"] default="<<defaultValue<<std::endl;
+    return ret.str();
+  }
+
+  void setIPAddress(const ComboAddress& ca)
+  {
+    if(ca.sin4.sin_port)
+      throw std::runtime_error("An IP address has no port number");
+    d_v=ca;
+  }
+
+  ComboAddress getIPAddress() const
+  {
+    return d_v;
+  }
+
+  bool operator==(const KolmoVal& rhs) const override
+  {
+    const auto& casted = dynamic_cast<const KolmoIPAddress&>(rhs);
+    return typeid(*this) == typeid(rhs) && ((d_v.sin4.sin_family ==0 && casted.d_v.sin4.sin_family ==0) || d_v == casted.d_v);
+  }
+  
+private:
+  ComboAddress d_v;
+};
+
+
+class KolmoNetmask : public KolmoVal
+{
+public:
+  explicit KolmoNetmask(const std::string& str) 
+  {
+    if(!str.empty())
+      d_v=Netmask(str);
+  }
+
+  explicit KolmoNetmask(const Netmask& ca) : d_v(ca)
+  {}
+
+  std::string getTypename() const override
+  {
+    return "netmask";
+  }
+
+  
+  explicit KolmoNetmask()
+  {
+  }
+
+  
+  static std::unique_ptr<KolmoVal> make(const std::string& str)
+  {
+    return std::make_unique<KolmoNetmask>(str);
+  }
+
+  std::unique_ptr<KolmoVal> clone() const
+  {
+    auto ret=std::make_unique<KolmoNetmask>(d_v);
+    ret->copyInBasics(*this);
+    return ret;
+  }
+
+  void setValue(const std::string& in)
+  {
+    checkRuntime();
+    if(!in.empty())
+      d_v=Netmask(in);
+  }
+
+  std::string getValue() const override
+  {
+    return d_v.toString();
+  }
+  
+  std::string display(int indent=0) const
+  {
+    std::ostringstream ret;
+    ret<<std::string(indent, ' ')<<d_v.toString()<<" ["<<description<<"] default="<<defaultValue<<std::endl;
+    return ret.str();
+  }
+
+  void setNetmask(const Netmask& ca)
+  {
+    d_v=ca;
+  }
+
+  Netmask getNetmask() const
+  {
+    return d_v;
+  }
+
+
+  bool operator==(const KolmoVal& rhs) const override
+  {
+    const auto& casted = dynamic_cast<const KolmoNetmask&>(rhs);
+    return typeid(*this) == typeid(rhs) && d_v == casted.d_v;
+  }
+  
+private:
+  Netmask d_v;
+};
+
+
 class KolmoInteger : public KolmoVal
 {
 public:

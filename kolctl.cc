@@ -4,6 +4,9 @@
 #include "minicurl.hh"
 #include "CLI/CLI.hpp"
 #include <boost/format.hpp>
+#include "kolmoweb.hh"
+#include <thread>
+
 using namespace std;
 
 static string getTimeSuffix()
@@ -87,10 +90,12 @@ try
 
   vector<std::string> cmds;
   string setstring, remote, schemafile, configfile;
-  app.add_option("command", cmds, "Commands")->required();
+  bool webserver;
+  app.add_option("command", cmds, "Commands");
   app.add_option("-r,--remote", remote, "Remote server");
   app.add_option("--schema", schemafile, "Schema file");
   app.add_option("--config", configfile, "Config file");
+  app.add_flag("--webserver,-w", webserver, "Launch a webserver");
 
   try {
     app.parse(argc, argv);
@@ -162,6 +167,15 @@ try
 
   //  kc.declareRuntime();
 
+  if(webserver) {
+    std::thread t(KolmoThread, &kc, ComboAddress("[::]:1234"));
+    t.join();
+    return 0;
+  }
+  if(cmds.empty()) {
+    cerr<<"No commands were passed!"<<endl;
+    cout << app.help()<<endl;
+  }
   string cmd=cmds[0];
   if(cmd=="minimal-config") {
     auto minimal=kc.getMinimalConfig();

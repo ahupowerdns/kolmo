@@ -15,6 +15,8 @@ KolmoConf::KolmoConf()
   d_prototypes["integer"]=std::make_unique<KolmoInteger>(0);
   d_prototypes["struct"]=std::make_unique<KolmoStruct>();
   d_prototypes["ipendpoint"]=std::make_unique<KolmoIPEndpoint>();
+  d_prototypes["ipaddress"]=std::make_unique<KolmoIPAddress>();
+  d_prototypes["netmask"]=std::make_unique<KolmoNetmask>();
   luaInit();
 }
 

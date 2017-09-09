@@ -11,7 +11,7 @@ bin_PROGRAMS = \
 
 
 ws_SOURCES =  \
-	ws.cc http.cc kolmoconf.cc kolmoconf.hh ext/simplesocket/comboaddress.cc
+	ws.cc http.cc kolmoconf.cc kolmoconf.hh ext/simplesocket/comboaddress.cc kolmoweb.cc
 
 ws_LDFLAGS = \
 	$(AM_LDFLAGS) $(BOOST_SYSTEM_LIBS) -lpthread -llua5.2 -lssl -lcrypto
@@ -20,7 +20,7 @@ ws_LDADD =
 
 kolctl_SOURCES =  \
 	kolctl.cc http.cc kolmoconf.cc kolmoconf.hh ext/simplesocket/comboaddress.cc \
-	minicurl.cc minicurl.hh
+	minicurl.cc minicurl.hh kolmoweb.cc
 
 kolctl_LDFLAGS = \
 	$(AM_LDFLAGS) $(BOOST_SYSTEM_LIBS) -lpthread -llua5.2 -lssl -lcrypto -lcurl
