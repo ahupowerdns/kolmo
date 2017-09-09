@@ -18,7 +18,7 @@ main:registerVariable("hide-server-type", "bool", {default="false", runtime="tru
 main:registerVariable("carbon-server", "ipendpoint", {default="", runtime="true", description="Send performance metrics to this IP address"})
 
 
-site=createClass("site", {})
+site=createClass("site", "A site we serve")
 site:registerVariable("name", "string", { runtime="false", description="Hostname of this website"})
 site:registerVariable("enabled", "bool", { runtime="false", default="true", description="If this site is enabled"})
 site:registerVariable("path", "string", { runtime="true", description="Path on filesystem where content is hosted"})
@@ -27,7 +27,7 @@ site:registerVariable("redirect-to-https", "bool", { default="false", runtime="t
 
 sites=main:registerVariable("sites", "struct", {member_type="site", runtime="false", description="Sites we serve"})
 
-listener=createClass("listener", {})
+listener=createClass("listener", "Settings for an IP address we listen on")
 listener:registerVariable("tls", "bool", { runtime="false", description="If this listener should perform TLS"})
 listener:registerVariable("fast-open", "bool", { runtime="false", description="If this listener should support TCP fast open"})
 listener:registerVariable("accept-filter", "bool", { runtime="false", description="If this listener should install a data-ready accept filter"})
@@ -38,7 +38,7 @@ listener:registerVariable("pem-file", "string", { runtime="false", description="
 listeners=main:registerVariable("listeners", "struct", { runtime="false", member_type="listener", description="Optional configurations per IP address listener"})
 
 
-logger=createClass("logger", {})
+logger=createClass("logger", "Describes a logger sink")
 logger:registerVariable("syslog", "bool", { default="true", runtime="false", description="If this logger should emit to syslog"})
 logger:registerVariable("syslog-facily", "string", { default="daemon", runtime="false", description="If this logger should emit to syslog"})
 logger:registerVariable("log-errors", "bool", { default="true", runtime="true", description="If this logger should log errors"})

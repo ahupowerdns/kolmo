@@ -219,30 +219,13 @@ void KolmoConf::luaInit()
 
   
   d_lua->writeFunction("createClass", [this](const std::string& name,
-					     vector<pair<string, vector<pair<int, string> > > > i) {
+					     const std::string& description) {
                          //			 cout<<"Registering class "<<name<<endl;
 			 KolmoStruct ks;
-			 for(const auto& e : i) {
-			   cout<<" Attribute '"<<e.first<<"' of type '"<<e.second[0].second<<"' and default value: '"<<e.second[1].second<<"'"<<endl;
-			   if(e.second[0].second=="bool")
-			     ks.registerBool(e.first, e.second[1].second=="true");
-			   else if(e.second[0].second=="string")
-			     ks.registerString(e.first, e.second[1].second);
-                           else if(e.second[0].second=="struct")
-			     ks.registerStruct(e.first, e.second[1].second);
-                           else if(e.second[0].second=="ipendpoint")
-			     ks.registerIPEndpoint(e.first, e.second[1].second);
-			   else {
-			     throw std::runtime_error("attempting to register unknown type "+e.second[0].second);
-			   }
-
-			 }
+                         ks.description=description;
 			 d_prototypes[name]=ks.clone();
                          return (KolmoStruct*)d_prototypes[name].get();
 		       });
-
-
-  
 }
 
 KolmoConf::~KolmoConf()
@@ -509,7 +492,6 @@ void KolmoInteger::setInteger(int64_t v)
 }
 
 /*
-
   diff is called with a template that describes 'us', and another KolmoStruct to compare against
   Every field of a struct is compared pair by pair
   Fields can be primitives like bool, string, integer
@@ -530,8 +512,6 @@ void KolmoInteger::setInteger(int64_t v)
 
    
   When recursing
-
-
 */
 
 std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const KolmoStruct& other, int nest) const

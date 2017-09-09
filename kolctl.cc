@@ -35,6 +35,51 @@ void syncConfig(const KolmoConf& kc, const std::string& configfile)
     throw std::runtime_error("Unable to change symlink for configuration file: "+string(strerror(errno)));
 }
 
+void markdownStruct(const std::string& name, const KolmoStruct* ks, int depth=2)
+{
+  if(ks->getAll().empty())
+    return;
+  cout<<string(depth, '#')<<" "<<name<<" members"<<endl;
+  cout<<ks->description<<endl;
+  cout<<"Variable | Type | Default | Runtime | Mandatory | Description"<<endl;
+  cout<<"---------|------|---------|---------|-----------| -----------"<<endl;
+
+  for(const auto& m : ks->getAll()) {
+    cout<<m.first<< " | " << m.second->getTypename()<< " | "<< m.second->defaultValue <<" | "<<(m.second->runtime ? " true " : "false")<<" | "<<(m.second->mandatory ? " true " : "false") << " | " <<m.second->description<<endl;
+  }
+  for(const auto& m : ks->getAll()) {
+    if(auto ptr = dynamic_cast<const KolmoStruct*>(m.second))
+      markdownStruct(m.first, ptr, depth+1);
+  }
+}
+
+void markdown(const KolmoConf& kc)
+{
+  cout<<R"(                <meta charset="utf-8" emacsmode="-*- markdown -*-">
+                            **Automatically generated Kolmo configuration for x**)"<<endl;
+
+  cout<<"# Markdown documentation for x"<<endl;
+  cout<<"## Classes used in configuration"<<endl;
+  for(const auto& p : d_prototypes) {
+    if(p.first == "struct")
+      continue;
+    if(auto ptr=dynamic_cast<KolmoStruct*>(p.second.get())) {
+      cout<<"### "<<p.first<<endl;
+      cout<<ptr->description<<endl;
+      cout<<"Variable | Type | Default | Runtime | Mandatory | Description"<<endl;
+      cout<<"---------|------|---------|---------|-----------| -----------"<<endl;
+
+      for(const auto& m : ptr->getAll()) {
+        cout<<m.first<< " | " << m.second->getTypename()<< " | "<< m.second->defaultValue <<" | "<<(m.second->runtime ? " true " : "false")<<" | "<<(m.second->mandatory ? " true " : "false") << " | " <<m.second->description<<endl;
+      }
+    }
+  }
+  cout<<"# Configuration"<<endl;
+  markdownStruct("main", &kc.d_main,2);
+  cout<<R"(<!-- Markdeep: --><style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style><script src="markdeep.min.js"></script><script 	src="https://casual-effects.com/markdeep/latest/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>)"<<endl;
+}
+
+
 int main(int argc, char** argv)
 try
 {
@@ -42,11 +87,10 @@ try
 
   vector<std::string> cmds;
   string setstring, remote, schemafile, configfile;
-  app.add_option("--commands,command", cmds, "Commands");
-  app.add_option("-r,--remote,remote", remote, "Remote server");
-  app.add_option("--schema,schema", schemafile, "Schema file");
-  app.add_option("--config,c", configfile, "Config file");
-  app.add_option("-d,--do", setstring, "Set string");
+  app.add_option("command", cmds, "Commands")->required();
+  app.add_option("-r,--remote", remote, "Remote server");
+  app.add_option("--schema", schemafile, "Schema file");
+  app.add_option("--config", configfile, "Config file");
 
   try {
     app.parse(argc, argv);
@@ -55,6 +99,11 @@ try
   }
   KolmoConf kc;
 
+  if(remote.empty() && schemafile.empty()) {
+    cerr<<"Specify a Kolmo-enabled tool to query, OR a schema file"<<endl;
+    cout<<app.help()<<endl;
+  }
+  
   if(!remote.empty()) {
     MiniCurl mc;
     string cmd=cmds[0];
@@ -124,6 +173,9 @@ try
     nlohmann::json wv;
     KSToJson(&kc.d_main, wv);
     cout<<std::setw(4)<<wv<<endl;
+  }
+  else if(cmd=="markdown") {
+    markdown(kc);
   }
   else if(cmd=="ls") {
     KolmoStruct* x;

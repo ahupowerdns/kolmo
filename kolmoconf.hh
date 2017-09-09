@@ -20,6 +20,8 @@ public:
   virtual std::unique_ptr<KolmoVal> clone() const =0;
   void copyInBasics(const KolmoVal& rhs)
   {
+    *((KolmoVal*)this)=rhs;
+    /*
     mandatory = rhs.mandatory;
     runtime = rhs.runtime;
     defaultValue = rhs.defaultValue;
@@ -27,6 +29,7 @@ public:
     cmdline = rhs.cmdline;
     check = rhs.check;
     unit = rhs.unit;
+    */
   }
   bool mandatory{false};
   bool runtime{false};
@@ -35,6 +38,7 @@ public:
   std::string unit;
   std::string cmdline;
   std::string check;
+  virtual std::string getTypename() const = 0;
   virtual void setValue(const std::string&)=0;
   virtual std::string getValue() const=0;
   virtual std::string display(int indent=0) const=0;
@@ -88,6 +92,11 @@ public:
     return ret;
   }
 
+  std::string getTypename() const override
+  {
+    return "bool";
+  }
+  
   std::string getValue() const override
   {
     return d_v ? "true" : "false";
@@ -157,6 +166,12 @@ public:
     d_v = str;
   }
 
+  std::string getTypename() const override
+  {
+    return "string";
+  }
+
+
   std::string getValue() const override
   {
     return d_v;
@@ -197,6 +212,12 @@ public:
   explicit KolmoIPEndpoint(const ComboAddress& ca) : d_v(ca)
   {}
 
+  std::string getTypename() const override
+  {
+    return "ipendpoint";
+  }
+
+  
   explicit KolmoIPEndpoint()
   {
     d_v.sin4.sin_family=0;
@@ -272,6 +293,10 @@ public:
   {
     return std::make_unique<KolmoInteger>(v);
   }
+  std::string getTypename() const override
+  {
+    return "integer";
+  }
 
   std::unique_ptr<KolmoVal> clone() const
   {
@@ -338,6 +363,12 @@ public:
   {
     return d_store.count(name);
   }
+
+  std::string getTypename() const override
+  {
+    return "struct";
+  }
+
   KolmoStruct* getStruct(const std::string& name);
   void registerVariableLua(const std::string& name, const std::string& type, std::unordered_map<std::string, std::string> attributes);
   void registerBool(const std::string& name, bool v);
