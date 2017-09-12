@@ -473,7 +473,7 @@ void KolmoInteger::setInteger(int64_t v)
         });
       
       string func="function func(x) "+check+ " end";
-      cerr<<"Running check: "<<func<<endl;
+      //      cerr<<"Running check: "<<func<<endl;
       lc.executeCode(func);
       lc.executeCode("func("+std::to_string(v)+")");
     }
