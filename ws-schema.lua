@@ -1,17 +1,27 @@
 
-main:registerVariable("verbose", "bool", { default="true", runtime="true", cmdline="-v", description="Perform verbose logging"})
+main:registerVariable("verbose", "bool", { 
+   default="true", runtime="true", cmdline="-v", 
+   description="Perform verbose logging"})
 
-main:registerVariable("server-name", "string", {default="", runtime="true", description="Name this server reports as by default"})
+main:registerVariable("server-name", "string",  { 
+   default="", runtime="true", 
+   description="Name this server reports as by default"})
 
-main:registerVariable("client-timeout", "integer",
-                                        {
-                                                default="5000",
-                                                runtime="true",
-                                                unit="milliseconds",
-                                                description="Timeout before client gets disconnected",
-                                                check='if(x < 1) then error("Timeout must be at least one millisecond") end'
-                                        })
-main:registerVariable("max-connections", "integer", {default="200", runtime="false", unit="connections", description="Maximum number of versions"})
+main:registerVariable("client-timeout", "integer", {
+   default="5000",
+   runtime="true",
+   unit="milliseconds",
+   description="Timeout before client gets disconnected",
+   check=
+   'if(x < 1) then error("Timeout must be at least one millisecond") end'
+})
+    
+main:registerVariable("max-connections", "integer", {
+   default="200", runtime="false", 
+   unit="connections", 
+   description="Maximum number of connections"})
+   
+   
 main:registerVariable("hide-server-version", "bool", {default="false", runtime="true", description="If we should hide server version number"})
 main:registerVariable("hide-server-type", "bool", {default="false", runtime="true", description="If we should hide server type"})
 
@@ -19,10 +29,24 @@ main:registerVariable("carbon-server", "ipendpoint", {default="", runtime="true"
 
 
 site=createClass("site", "A site we serve")
-site:registerVariable("name", "string", { runtime="false", description="Hostname of this website"})
-site:registerVariable("enabled", "bool", { runtime="false", default="true", description="If this site is enabled"})
-site:registerVariable("path", "string", { runtime="true", description="Path on filesystem where content is hosted"})
-site:registerVariable("listen", "struct", { member_type="ipendpoint", runtime="false", description="IP endpoints we listen on"})
+site:registerVariable("name", "string", { 
+    runtime="false", 
+    description="Hostname of this website" 
+  })
+site:registerVariable("enabled", "bool", { 
+  runtime="false", 
+  default="true", 
+  description="If this site is enabled"
+  })
+site:registerVariable("path", "string", { 
+  runtime="true", 
+  description="Path on fs where content is"
+  })
+  
+site:registerVariable("listen", "struct", { 
+  member_type="ipendpoint", runtime="false", 
+  description="IP endpoints we listen on"})
+  
 site:registerVariable("redirect-to-https", "bool", { default="false", runtime="true", description="If all http requests should be redirected to https"})
 
 sites=main:registerVariable("sites", "struct", {member_type="site", runtime="false", description="Sites we serve"})
@@ -40,7 +64,7 @@ listeners=main:registerVariable("listeners", "struct", { runtime="false", member
 
 logger=createClass("logger", "Describes a logger sink")
 logger:registerVariable("syslog", "bool", { default="true", runtime="false", description="If this logger should emit to syslog"})
-logger:registerVariable("syslog-facily", "string", { default="daemon", runtime="false", description="If this logger should emit to syslog"})
+logger:registerVariable("syslog-facility", "string", { default="daemon", runtime="false", description="If this logger should emit to syslog"})
 logger:registerVariable("log-errors", "bool", { default="true", runtime="true", description="If this logger should log errors"})
 logger:registerVariable("log-warning", "bool", { default="true", runtime="true", description="If this logger should log warnings"})
 logger:registerVariable("log-hits", "bool", { default="false", runtime="true", description="If this logger should log website hits"})

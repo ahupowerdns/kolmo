@@ -16,6 +16,7 @@ static void emitJSON(crow::response& resp, nlohmann::json& wv)
 
 
 void KolmoThread(KolmoConf* kc, ComboAddress ca)
+try
 {
   crow::SimpleApp app;
   CROW_ROUTE(app, "/full-config")([kc](const crow::request& rec, crow::response& resp) {
@@ -91,4 +92,7 @@ void KolmoThread(KolmoConf* kc, ComboAddress ca)
   
   
   app.port(ntohs(ca.sin4.sin_port)).bindaddr(ca.toString()).multithreaded().run();
+}
+catch(std::exception& e) {
+  cerr<<"Kolmo thread ended because of error: "<<e.what()<<endl;
 }
