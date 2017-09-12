@@ -1,7 +1,7 @@
 # kolmo
 Libkolmo: configuration management primitives library &amp; support infrastructure
 
-Status: **thinking out loud**
+Status: Running prototpe
 
 # Kolmogorov complexity
 The name is a nod to Andrey Nikolaevich Kolmogorov who (together with
@@ -32,23 +32,26 @@ The goal of Libkolmo is exactly that: prevent this explosion of complexity
 while making software easier to configure & serialize.
 
 ## Examples
+Note: these examples are not in sync with the actual code. Best source for examples right now is http://kolmo.org/ !
+
 Assume a simple webserver called `ws` with a control command called `wsctl`.
 This is based on a `ws` and `wsctl` linking in 'libkolmo', which provides 
 these capabilities.
 
 ```
 $ cat ws.conf
+{}
 $ ws
 w: Listening on 127.0.0.1:80, serving from /var/www/html
-$ wsctl --dump-config
+$ wsctl --minimal-config
 $
 $ wsctl --add-vhost [::1]:80 /var/www/ipv6/
-$ wsctl --dump-config
+$ wsctl minimcal-config
 vhost [::1]:80 {
 	root /var/www/ipv6;
 }
 
-$ wsctl --dump-config --full
+$ wsctl full-config
 vhost 127.0.0.1:80 {
 	root /var/www/html;
 }
