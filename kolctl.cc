@@ -107,6 +107,7 @@ try
   if(remote.empty() && schemafile.empty()) {
     cerr<<"Specify a Kolmo-enabled tool to query, OR a schema file"<<endl;
     cout<<app.help()<<endl;
+    return 0;
   }
   
   if(!remote.empty()) {
@@ -175,6 +176,7 @@ try
   if(cmds.empty()) {
     cerr<<"No commands were passed!"<<endl;
     cout << app.help()<<endl;
+    return 0;
   }
   string cmd=cmds[0];
   if(cmd=="minimal-config") {
