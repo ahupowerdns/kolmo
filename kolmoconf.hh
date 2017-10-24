@@ -512,9 +512,9 @@ class KolmoStruct : public KolmoVal, public boost::noncopyable
 {
 public:
   KolmoStruct() {}
-  bool getBool(const std::string& name);
+  bool getBool(const std::string& name) const;
   ComboAddress getIPEndpoint(const std::string& name) const;
-  std::string getString(const std::string& name);
+  std::string getString(const std::string& name) const;
   void setString(const std::string& name, const std::string& value);
   void setBool(const std::string& name, bool v);
   void tieBool(const std::string& name, std::atomic<bool>* target);
@@ -533,8 +533,8 @@ public:
     return "struct";
   }
 
-  KolmoStruct* getStruct(const std::string& name);
-  void registerVariableLua(const std::string& name, const std::string& type, std::unordered_map<std::string, std::string> attributes);
+  KolmoStruct* getStruct(const std::string& name) const;
+  void registerVariableLua(const std::string& name, const std::string& type, std::unordered_map<std::string, boost::variant<std::string,bool,double> > attributes);
   void registerBool(const std::string& name, bool v);
   void registerString(const std::string& name, const std::string& );
   void registerIPEndpoint(const std::string& name, const std::string& );
@@ -543,7 +543,7 @@ public:
   void addValueToStruct(const std::string& name, const std::string& val);
   void addValue(const std::string& val);
 
-  KolmoStruct* getNewMember();
+  KolmoStruct* getNewMember() const;
   std::string getValue() const override
   {
     return "{struct}";
@@ -642,6 +642,7 @@ private:
 
 class LuaContext;
 extern std::map<std::string, std::unique_ptr<KolmoVal> > d_prototypes; // XXX NO NO NO, has to be in kolmoconf!
+const KolmoStruct* getPrototype(const std::string& name);
 class KolmoConf
 {
 public:

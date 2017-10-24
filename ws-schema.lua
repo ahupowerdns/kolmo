@@ -75,4 +75,10 @@ loggers=main:getStruct("loggers")
 logger=loggers:getNewMember()
 loggers:registerStructMember("messages", logger)
 
-main:registerVariable("kolmo-server", "ipendpoint", {default="127.0.0.1:1234", runtime="false", description="If we should launch a kolmo server"})
+kolmo=createClass("kolmo", "Describes a kolmo server")
+kolmo:registerVariable("listen-address", "ipendpoint", {mandatory=true, runtime="false", description="IP address on which to run a Kolmo server"})
+kolmo:registerVariable("readonly-password", "string", {mandatory=false, runtime="false", description="Password that grants RO access to this server"})
+kolmo:registerVariable("readwrite-password", "string", {mandatory=false, runtime="false", description="Password that grants RW access to this server"})
+
+main:registerVariable("kolmo-servers", "struct", { runtime="false", member_type="kolmo", description="Kolmo servers on which to provide Kolmo service"})
+

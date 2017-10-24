@@ -210,6 +210,13 @@ try
       cout<<(fmt % cmds[1] % y->getValue() % y->description).str()<<endl;
     }
   }
+  else if(cmd=="show") {
+    auto obj=getPrototype(cmds[1]);
+    boost::format fmt("%1$-20s %|25t|%2$s %|45t|%3$s");
+    for(auto i : obj->getAll()) {
+      cout<<(fmt % i.first % i.second->getValue() % i.second->description).str()<<endl;
+    }
+  }
   else if(cmd=="set") {
     string var, val;
     auto pos=cmds[1].find('=');

@@ -199,9 +199,11 @@ std::atomic<bool> g_verbose;
 int main(int argc, char** argv)
 {
   //  crow::logger::setLogLevel(crow::LogLevel::Debug);
+    //kc.initConfigFromLua("ws.conf");
+  
   KolmoConf kc;
   kc.initSchemaFromFile("ws-schema.lua");
-  //kc.initConfigFromLua("ws.conf");
+
   kc.initConfigFromJSON("ws.json");
   kc.declareRuntime();
   kc.initConfigFromCmdline(argc, argv);
@@ -219,9 +221,9 @@ int main(int argc, char** argv)
   set<ComboAddress> listenAddresses;
   auto sites = kc.d_main.getStruct("sites"); // XXX SHOULd BE TYPESAFE
 
-  for(const auto& m : sites->getMembers()) {
-    auto site = sites->getStruct(m);
-    cerr<<"["<<m<<"] We run a website called "<<site->getString("name")<<endl;
+  for(const auto& m : sites->getAll()) {
+    auto site = dynamic_cast<const KolmoStruct*>(m.second);
+    cerr<<"["<<m.first<<"] We run a website called "<<site->getString("name")<<endl;
     if(!site->getBool("enabled")) {
       cerr<<"However, site is not enabled, skipping"<<endl;
     }
@@ -247,10 +249,15 @@ int main(int argc, char** argv)
   
   vector<std::thread> listeners;
 
-  auto addr=kc.d_main.getIPEndpoint("kolmo-server");
+  auto kolmos = kc.d_main.getStruct("kolmo-servers"); // XXX SHOULd BE TYPESAFE
 
-  if(addr.sin4.sin_family) // this should actually be some kind of 'isSet()' thing
-    listeners.emplace_back(KolmoThread, &kc, addr);
+  for(const auto& m : kolmos->getAll()) {
+    auto kstruct=dynamic_cast<const KolmoStruct*>(m.second);
+    auto addr=kstruct->getIPEndpoint("listen-address");
+
+    if(addr.sin4.sin_family) // this should actually be some kind of 'isSet()' thing
+      listeners.emplace_back(KolmoThread, &kc, addr);
+  }
   
   for(const auto& addr : listenAddresses) {
     listeners.emplace_back(listenThread, &kc, addr);

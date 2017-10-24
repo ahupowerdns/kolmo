@@ -38,6 +38,17 @@ void KolmoStruct::registerIPEndpoint(const std::string& name, const std::string&
 
 std::map<std::string, std::unique_ptr<KolmoVal> > d_prototypes; // XXX NO NO NO, has to be in kolmoconf!
 
+const KolmoStruct* getPrototype(const std::string& name)
+{
+  auto f = d_prototypes.find(name);
+  if(f == d_prototypes.end())
+    throw std::runtime_error("No class named "+name+" found");
+  auto s=dynamic_cast<KolmoStruct*>(f->second.get());
+  if(!s)
+    throw std::runtime_error("requested wrong type for configuration item "+name);
+  return s;
+}
+
 void KolmoStruct::registerStruct(const std::string& name, const std::string& strname)
 {
   auto f = d_prototypes.find(strname);
@@ -136,7 +147,7 @@ KolmoVal* KolmoStruct::getValueAt(const std::string& name) const
 }
 
 
-KolmoStruct* KolmoStruct::getNewMember()
+KolmoStruct* KolmoStruct::getNewMember() const
 {
   auto f = d_prototypes.find(d_membertype);
   if(f == d_prototypes.end())
@@ -147,7 +158,18 @@ KolmoStruct* KolmoStruct::getNewMember()
   return ret;
 }
 
-void KolmoStruct::registerVariableLua(const std::string& name, const std::string& type, std::unordered_map<string, string> attributes)
+static bool getBoolFromLua(const boost::variant<string,bool,double>& val)
+{
+  if(auto ptr=boost::get<bool>(&val))
+    return *ptr;
+  else if(auto ptr=boost::get<string>(&val))
+    return *ptr=="true";
+  else if(auto ptr=boost::get<double>(&val))
+    return (*ptr)!=0.0;
+  return false;
+}
+
+void KolmoStruct::registerVariableLua(const std::string& name, const std::string& type, std::unordered_map<string, boost::variant<string,bool,double> > attributes)
 {
   auto f = d_prototypes.find(type);
   if(f == d_prototypes.end())
@@ -156,39 +178,39 @@ void KolmoStruct::registerVariableLua(const std::string& name, const std::string
   auto thing=f->second->clone();
   auto iter = attributes.find("default");
   if(iter != attributes.end()) {
-    thing->setValue(iter->second);
-    thing->defaultValue=iter->second;
+    thing->setValue(boost::get<string>(iter->second));
+    thing->defaultValue=boost::get<string>(iter->second);
   }
   iter = attributes.find("runtime");
   if(iter != attributes.end())
-    thing->runtime=iter->second=="true";
+    thing->runtime=getBoolFromLua(iter->second);
 
   iter = attributes.find("check");
   if(iter != attributes.end())
-    thing->check=iter->second;
+    thing->check=boost::get<string>(iter->second);
 
   
   iter = attributes.find("description");
   if(iter != attributes.end())
-    thing->description=iter->second;
+    thing->description=boost::get<string>(iter->second);
 
   iter = attributes.find("cmdline");
   if(iter != attributes.end())
-    thing->cmdline=iter->second;
+    thing->cmdline=boost::get<string>(iter->second);
   
   iter = attributes.find("unit");
   if(iter != attributes.end())
-    thing->unit=iter->second;
+    thing->unit=boost::get<string>(iter->second);
 
   iter = attributes.find("member_type");
   if(iter != attributes.end()) {
-    auto f = d_prototypes.find(iter->second);
+    auto f = d_prototypes.find(boost::get<string>(iter->second));
     if(f == d_prototypes.end())
       throw std::runtime_error("No class named "+name+" found for member-type lookup");
     auto s=dynamic_cast<KolmoStruct*>(thing.get());
     if(!s)
       throw std::runtime_error("requested wrong type for configuration item "+name);
-    s->setMemberType(iter->second);
+    s->setMemberType(boost::get<string>(iter->second));
   }
 
   
@@ -304,7 +326,7 @@ catch(const LuaContext::ExecutionErrorException& e) {
   abort();
 }
 
-bool KolmoStruct::getBool(const std::string& name)
+bool KolmoStruct::getBool(const std::string& name) const
 {
   auto f=d_store.find(name);
   if(f==d_store.end())
@@ -327,7 +349,7 @@ ComboAddress KolmoStruct::getIPEndpoint(const std::string& name) const
 }
 
 
-string KolmoStruct::getString(const std::string& name)
+string KolmoStruct::getString(const std::string& name) const
 {
   auto f=d_store.find(name);
   if(f==d_store.end())
@@ -432,7 +454,7 @@ void KolmoStruct::setIPEndpointCA(const std::string& name, const ComboAddress& c
 
 
 
-KolmoStruct* KolmoStruct::getStruct(const std::string& name)
+KolmoStruct* KolmoStruct::getStruct(const std::string& name) const
 {
   auto f=d_store.find(name);
   if(f==d_store.end())
