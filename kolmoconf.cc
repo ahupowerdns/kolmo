@@ -405,6 +405,19 @@ int64_t KolmoStruct::getInteger(const std::string& name) const
   return s->getInteger();
 }
 
+Netmask KolmoStruct::getNetmask(const std::string& name) const
+{
+  auto f=d_store.find(name);
+  if(f==d_store.end())
+    throw std::runtime_error("requested non-existent Netmask configuration item '"+name+"'");
+  auto s=dynamic_cast<KolmoNetmask*>(f->second.get());
+  if(!s)
+    throw std::runtime_error("requested wrong type (netmask) for configuration item "+name);
+  return s->getNetmask();
+}
+
+
+
 
 // THIS ONE IS WEIRD AND UNLIKE ALL THE OTHERS
 void KolmoStruct::setStruct(const std::string& name, std::unique_ptr<KolmoStruct> s)
@@ -675,6 +688,10 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
 	ret->unregisterVariable(m.first);
       }
     }
+    else {
+      cerr<<"You have work to do, unknown type!"<<endl;
+      abort();
+    }
 
   }
   if(dbg) cerr<<prefix<<"Done with ourselves, had "<<visited.size()<<" members, checking what er missed on other side"<<endl;
@@ -705,6 +722,7 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
 void KSToJson(KolmoStruct* ks, nlohmann::json& x)
 {
   x=nlohmann::json::object();
+  // XXX ALL TYPES NEED TO BE ADDED HERE
   for(const auto& m : ks->getAll()) {
     if(auto ptr=dynamic_cast<KolmoBool*>(m.second)) {
       x[m.first]=ptr->getBool();
@@ -715,6 +733,9 @@ void KSToJson(KolmoStruct* ks, nlohmann::json& x)
     else if(auto ptr=dynamic_cast<KolmoIPEndpoint*>(m.second)) {
       x[m.first]=ptr->getValue();
     }
+    else if(auto ptr=dynamic_cast<KolmoNetmask*>(m.second)) {
+      x[m.first]=ptr->getValue();
+    }
     else if(auto ptr=dynamic_cast<KolmoIPAddress*>(m.second)) {
       x[m.first]=ptr->getValue();
     }
@@ -723,6 +744,10 @@ void KSToJson(KolmoStruct* ks, nlohmann::json& x)
     }
     else if(auto ptr=dynamic_cast<KolmoStruct*>(m.second)) {
       KSToJson(ptr, x[m.first]);
+    }
+    else {
+      cerr<<"Unknown type, you have work to do in KSToJson"<<endl;
+      abort();
     }
   }
 }

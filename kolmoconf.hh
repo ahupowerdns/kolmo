@@ -414,8 +414,9 @@ public:
   void setValue(const std::string& in)
   {
     checkRuntime();
-    if(!in.empty())
+    if(!in.empty()) {
       d_v=Netmask(in);
+    }
   }
 
   std::string getValue() const override
@@ -521,6 +522,7 @@ public:
   ComboAddress getIPEndpoint(const std::string& name) const;
   ComboAddress getIPAddress(const std::string& name) const;
   int64_t getInteger(const std::string& name) const;
+  Netmask getNetmask(const std::string& name) const;
   std::string getString(const std::string& name) const;
   void setString(const std::string& name, const std::string& value);
   void setBool(const std::string& name, bool v);

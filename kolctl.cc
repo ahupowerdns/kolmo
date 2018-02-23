@@ -241,6 +241,10 @@ try
     syncConfig(kc, configfile);
   }
   else if(cmd=="add") { // add sites www '{name: "ds9a.nl", path: "/var/www/ds9a.nl/"}'
+    if(cmds.size() < 3) {
+      cerr<<"Syntax: add sites www '{name: \"ds9a.nl\", path: \"/var/www/ds9a.nl/\"}"<<endl;
+      exit(EXIT_FAILURE);
+    }
     KolmoStruct* x=dynamic_cast<KolmoStruct*>(kc.d_main.getValueAt(cmds[1]));
     if(!x) 
       throw std::runtime_error("Can only add value to a struct, which "+cmds[1]+" is not");
