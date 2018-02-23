@@ -205,8 +205,8 @@ public:
   {
     if(str.empty())
       d_v.sin4.sin_family=0;
-    else
-      d_v=ComboAddress(str);
+    else 
+      d_v=ComboAddress(str, d_defaultPort); 
   }
 
   explicit KolmoIPEndpoint(const ComboAddress& ca) : d_v(ca)
@@ -233,6 +233,7 @@ public:
   {
     auto ret=std::make_unique<KolmoIPEndpoint>(d_v);
     ret->copyInBasics(*this);
+    ret->d_defaultPort = d_defaultPort;
     return ret;
   }
 
@@ -242,7 +243,7 @@ public:
     if(in.empty())
       d_v.sin4.sin_family=0;
     else
-      d_v=ComboAddress(in);
+      d_v=ComboAddress(in, d_defaultPort);
   }
 
   std::string getValue() const override
@@ -277,10 +278,14 @@ public:
     return typeid(*this) == typeid(rhs) && ((d_v.sin4.sin_family ==0 && casted.d_v.sin4.sin_family ==0) || d_v == casted.d_v);
   }
 
-  
+  void setDefaultPort(uint16_t port)
+  {
+    d_defaultPort = port;
+  }
   
 private:
   ComboAddress d_v;
+  uint16_t d_defaultPort{0};
 };
 
 
@@ -514,12 +519,15 @@ public:
   KolmoStruct() {}
   bool getBool(const std::string& name) const;
   ComboAddress getIPEndpoint(const std::string& name) const;
+  ComboAddress getIPAddress(const std::string& name) const;
+  int64_t getInteger(const std::string& name) const;
   std::string getString(const std::string& name) const;
   void setString(const std::string& name, const std::string& value);
   void setBool(const std::string& name, bool v);
   void tieBool(const std::string& name, std::atomic<bool>* target);
   void setIPEndpoint(const std::string& name, const std::string& value);
   void setIPEndpointCA(const std::string& name, const ComboAddress& ca);
+  void setIPAddressCA(const std::string& name, const ComboAddress& ca);
   void setStruct(const std::string& name, std::unique_ptr<KolmoStruct> s);
   void setInteger(const std::string& name, uint64_t value);
   KolmoVal* getMember(const std::string& name) const;

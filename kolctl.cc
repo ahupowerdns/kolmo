@@ -221,6 +221,10 @@ try
     string var, val;
     auto pos=cmds[1].find('=');
     if(pos==string::npos) {
+      if(cmds.size() > 2) {
+        cerr<<"Missing =, syntax is: set val=var"<<endl;
+        exit(EXIT_FAILURE);
+      }
       var=cmds[1];
       val="true";
     }
@@ -229,6 +233,7 @@ try
       val=cmds[1].substr(pos+1);
     }
     kc.d_main.setValueAt(var, val);
+    cout<<"New value: '"<<kc.d_main.getValueAt(var)->getValue() << "'"<<endl;
     syncConfig(kc, configfile);
   }
   else if(cmd=="rm") {

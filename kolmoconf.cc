@@ -91,6 +91,7 @@ void KolmoVal::checkRuntime()
 
 void KolmoStruct::setValueAt(const std::string& name, const std::string& value)
 {
+  cout<<"Called for '"<<name<<"' = '"<<value<<"'"<<endl;
   vector<string> split;
   boost::split(split,name,boost::is_any_of("/"));
   auto ptr=this;
@@ -176,14 +177,23 @@ void KolmoStruct::registerVariableLua(const std::string& name, const std::string
     throw std::runtime_error("No class named "+type+" found");
 
   auto thing=f->second->clone();
-  auto iter = attributes.find("default");
+
+  auto iter = attributes.find("runtime");
+  if(iter != attributes.end())
+    thing->runtime=getBoolFromLua(iter->second);
+
+  if(auto ptr = dynamic_cast<KolmoIPEndpoint*>(thing.get())) {
+    iter = attributes.find("default_port");
+    if(iter != attributes.end()) {
+      ptr->setDefaultPort(atoi(boost::get<string>(iter->second).c_str()));
+    }
+  }
+
+  iter = attributes.find("default");
   if(iter != attributes.end()) {
     thing->setValue(boost::get<string>(iter->second));
     thing->defaultValue=boost::get<string>(iter->second);
   }
-  iter = attributes.find("runtime");
-  if(iter != attributes.end())
-    thing->runtime=getBoolFromLua(iter->second);
 
   iter = attributes.find("check");
   if(iter != attributes.end())
@@ -213,7 +223,6 @@ void KolmoStruct::registerVariableLua(const std::string& name, const std::string
     s->setMemberType(boost::get<string>(iter->second));
   }
 
-  
   //  cout<<"Registering variable "<<name<<" of type "<<type<<", description="<<thing->description<<endl;
   d_store[name]=thing->clone();
 }
@@ -266,6 +275,8 @@ void KolmoConf::initSchemaFromFile(const std::string& str)
 try
 {
   std::ifstream ifs{str};
+  if(!ifs)
+    throw runtime_error("Can't open file "+str+" for reading configuration schema: "+strerror(errno));
   d_lua->executeCode(ifs);
   d_default = std::move(d_main.clone());
 }
@@ -288,8 +299,7 @@ void KolmoConf::initConfigFromCmdline(int argc, char** argv)
   for(int n=1; n < argc; ++n) {
     for(const auto m : d_main.getAll()) {
       if(argv[n]==m.second->cmdline) {
-        cerr<<"Hit!"<<endl;
-        auto ptr = dynamic_cast<KolmoBool*>(m.second);
+         auto ptr = dynamic_cast<KolmoBool*>(m.second);
         if(ptr)
           ptr->setBool(true);
       }
@@ -348,6 +358,17 @@ ComboAddress KolmoStruct::getIPEndpoint(const std::string& name) const
   return s->getIPEndpoint();
 }
 
+ComboAddress KolmoStruct::getIPAddress(const std::string& name) const
+{
+  auto f=d_store.find(name);
+  if(f==d_store.end())
+    throw std::runtime_error("requested non-existent IPAddress configuration item '"+name+"'");
+  auto s=dynamic_cast<KolmoIPAddress*>(f->second.get());
+  if(!s)
+    throw std::runtime_error("requested wrong type for configuration item "+name);
+  return s->getIPAddress();
+}
+
 
 string KolmoStruct::getString(const std::string& name) const
 {
@@ -361,6 +382,7 @@ string KolmoStruct::getString(const std::string& name) const
 }
 
 
+
 void KolmoStruct::setString(const std::string& name, const std::string& val)
 {
   auto f=d_store.find(name);
@@ -371,6 +393,18 @@ void KolmoStruct::setString(const std::string& name, const std::string& val)
     throw std::runtime_error("requested wrong type (string) for configuration item "+name);
   s->d_v = val;
 }
+
+int64_t KolmoStruct::getInteger(const std::string& name) const
+{
+  auto f=d_store.find(name);
+  if(f==d_store.end())
+    throw std::runtime_error("requested non-existent integer configuration item '"+name+"'");
+  auto s=dynamic_cast<KolmoInteger*>(f->second.get());
+  if(!s)
+    throw std::runtime_error("requested wrong type (int) for configuration item "+name);
+  return s->getInteger();
+}
+
 
 // THIS ONE IS WEIRD AND UNLIKE ALL THE OTHERS
 void KolmoStruct::setStruct(const std::string& name, std::unique_ptr<KolmoStruct> s)
@@ -440,7 +474,7 @@ void KolmoStruct::setIPEndpoint(const std::string& name, const std::string& in)
   s->setIPEndpoint(ComboAddress(in));
 }
 
-// this should take a ComboAddress, but for Lua this is easier
+
 void KolmoStruct::setIPEndpointCA(const std::string& name, const ComboAddress& ca)
 {
   auto f=d_store.find(name);
@@ -450,6 +484,17 @@ void KolmoStruct::setIPEndpointCA(const std::string& name, const ComboAddress& c
   if(!s)
     throw std::runtime_error("requested wrong type (ipendpoint) for configuration item "+name);
   s->setIPEndpoint(ca);
+}
+
+void KolmoStruct::setIPAddressCA(const std::string& name, const ComboAddress& ca)
+{
+  auto f=d_store.find(name);
+  if(f==d_store.end())
+    throw std::runtime_error("requested non-existent configuration item "+name);
+  auto s=dynamic_cast<KolmoIPAddress*>(f->second.get());
+  if(!s)
+    throw std::runtime_error("requested wrong type (ipaddress) for configuration item "+name);
+  s->setIPAddress(ca);
 }
 
 
@@ -617,6 +662,20 @@ std::unique_ptr<KolmoStruct> KolmoStruct::diff(const KolmoStruct& templ, const K
 	ret->unregisterVariable(m.first);
       }
     }
+    else if(auto ptr = dynamic_cast<const KolmoIPAddress*>(m.second.get())) {
+      if(dbg) cerr<<prefix<<"Comparing an IP Address"<<endl;
+      auto rhs=dynamic_cast<const KolmoIPAddress*>(other.getMember(m.first));
+      if(*ptr != *rhs) {
+	if(dbg) cerr<<prefix<<"Field "<<m.first<<" is different!!"<<endl;
+	ret->setIPAddressCA(m.first, rhs->getIPAddress());
+      }
+      else {
+	if(dbg) cerr<<prefix<<"Was unchanged "<<ptr->getIPAddress().toStringWithPort()<<", "<<
+	  rhs->getIPAddress().toStringWithPort()<<endl;
+	ret->unregisterVariable(m.first);
+      }
+    }
+
   }
   if(dbg) cerr<<prefix<<"Done with ourselves, had "<<visited.size()<<" members, checking what er missed on other side"<<endl;
   for(const auto& rhs : other.getAll()) {
@@ -654,6 +713,9 @@ void KSToJson(KolmoStruct* ks, nlohmann::json& x)
       x[m.first]=ptr->getInteger();
     }
     else if(auto ptr=dynamic_cast<KolmoIPEndpoint*>(m.second)) {
+      x[m.first]=ptr->getValue();
+    }
+    else if(auto ptr=dynamic_cast<KolmoIPAddress*>(m.second)) {
       x[m.first]=ptr->getValue();
     }
     else if(auto ptr=dynamic_cast<KolmoString*>(m.second)) {
